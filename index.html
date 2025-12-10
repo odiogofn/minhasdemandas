@@ -2,2247 +2,485 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <title>Cadastro de Demandas</title>
+  <title>Sistema de Demandas - Caminho A (Supabase Auth)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@1.35.7/dist/umd/supabase.min.js"></script>
-  <style>
-    *{box-sizing:border-box;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-    body{margin:0;background:#f4f5f7;color:#222}
-    header{background:#111827;color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center}
-    main{max-width:1100px;margin:18px auto;padding:0 16px}
-    .card{background:#fff;border-radius:8px;padding:16px;box-shadow:0 2px 6px rgba(0,0,0,.06);margin-bottom:16px}
-    h2{margin:0 0 12px;font-size:18px}
-
-    .form-group{margin-bottom:10px}
-    .form-row{display:flex;gap:12px;flex-wrap:wrap}
-    .form-row .col-2{flex:1;min-width:220px}
-    label{display:block;font-size:13px;font-weight:600;margin-bottom:6px}
-    input[type="text"],input[type="password"],textarea,select{width:100%;padding:8px 10px;border-radius:6px;border:1px solid #d0d7de;font-size:14px;background:#fff}
-    textarea{min-height:80px;resize:vertical}
-
-    #cliente,#assunto{text-transform:uppercase;}
-
-    .btn{border:0;border-radius:6px;padding:8px 12px;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
-    .btn-primary{background:#2563eb;color:#fff}
-    .btn-secondary{background:#e5e7eb;color:#111827}
-    .btn-danger{background:#ef4444;color:#fff}
-    .btn-sm{padding:4px 8px;font-size:12px;border-radius:4px}
-    .btn:disabled{opacity:0.6;cursor:default}
-
-    .tag-input-container{border:1px solid #d0d7de;border-radius:6px;padding:4px;display:flex;flex-wrap:wrap;gap:6px;background:#fff;cursor:text}
-    .tag-chip{background:#e0ecff;color:#1d4ed8;border-radius:999px;padding:4px 8px;font-size:12px;display:inline-flex;align-items:center;gap:6px}
-    .tag-chip button{border:0;background:transparent;color:inherit;cursor:pointer;font-size:11px}
-    .tag-input{border:0;outline:0;flex:1;min-width:90px;padding:4px;font-size:13px}
-
-    .suggestions-box{margin-top:4px;font-size:11px;display:flex;flex-wrap:wrap;gap:4px}
-    .suggestion-chip{background:#f3f4f6;border-radius:999px;padding:3px 8px;cursor:pointer;border:1px solid #e5e7eb}
-    .suggestion-chip:hover{background:#e5e7eb}
-
-    .muted{color:#6b7280;font-size:12px}
-    table{width:100%;border-collapse:collapse;font-size:13px}
-    th,td{padding:8px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top}
-    thead{background:#fafafa}
-    tbody tr:hover{background:#f3f4f6;cursor:pointer}
-    .codigo{font-family:monospace;background:#eef2ff;padding:2px 6px;border-radius:4px;font-size:12px}
-    .tags-list span{display:inline-block;background:#e5e7eb;border-radius:999px;padding:2px 6px;margin:1px;font-size:11px}
-    .status-pill,.prio-pill{padding:2px 8px;border-radius:999px;font-weight:600;font-size:11px;display:inline-block}
-    .status-aberta{background:#dbeafe;color:#1d4ed8}
-    .status-analise{background:#fef3c7;color:#92400e}
-    .status-concluida{background:#dcfce7;color:#166534}
-    .prio-baixa{background:#e5e7eb;color:#374151}
-    .prio-media{background:#dbeafe;color:#1d4ed8}
-    .prio-alta{background:#fee2e2;color:#b91c1c}
-    .prio-urgente{background:#f97316;color:#fff}
-    .acoes-cell{display:flex;gap:6px;flex-wrap:wrap}
-    .status-bar{margin-top:10px;font-size:13px;color:#374151}
-
-    .modal-overlay{
-      position:fixed;inset:0;background:rgba(15,23,42,.45);
-      display:none;align-items:center;justify-content:center;z-index:1000;
-    }
-    .modal{
-      background:#fff;border-radius:10px;padding:16px;
-      max-width:900px;width:95%;max-height:90vh;overflow:auto;
-      box-shadow:0 10px 25px rgba(0,0,0,.25);
-    }
-    .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-    .modal-title{font-size:16px;font-weight:600}
-    .chip{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;background:#e5e7eb;margin-right:4px}
-    .andamento-item{border-left:3px solid #2563eb;padding-left:8px;margin-bottom:8px}
-    .andamento-data{font-size:11px;color:#6b7280}
-
-    .chart-section{margin-bottom:18px;border-bottom:1px solid #e5e7eb;padding-bottom:10px}
-    .chart-section:last-child{border-bottom:0}
-    .chart-section h3{margin:0 0 6px;font-size:14px}
-    .chart-row{display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12px}
-    .chart-label{min-width:140px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .chart-bar{flex:1;background:#e5e7eb;border-radius:999px;overflow:hidden;height:10px}
-    .chart-bar-fill{height:100%;background:#2563eb}
-  </style>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.48.0/dist/umd/supabase.min.js"></script>
 </head>
 <body>
-  <!-- LOGIN / CADASTRO DE USUÁRIO -->
-  <div id="auth-container" class="card" style="max-width:400px;margin:24px auto;">
-    <h2>Acesso ao Sistema</h2>
-    <div class="form-group">
-      <label for="login-nome">Nome (login)</label>
-      <input type="text" id="login-nome" placeholder="Seu nome cadastrado" />
-    </div>
-    <div class="form-group">
-      <label for="login-senha">Senha (até 10 caracteres, letras e números)</label>
-      <input type="password" id="login-senha" maxlength="10" placeholder="Ex: diogo123" />
-    </div>
-    <button id="btn-login" class="btn btn-primary" type="button">Entrar</button>
 
-    <hr style="margin:16px 0">
+  <!-- ========================= -->
+  <!-- TELA DE LOGIN / CADASTRO -->
+  <!-- ========================= -->
+  <div id="auth-container" class="card auth-wrapper">
+    <h1 class="app-title">Sistema de Demandas</h1>
 
-    <h2>Novo Usuário</h2>
-    <div class="form-group">
-      <label for="cad-nome">Nome</label>
-      <input type="text" id="cad-nome" placeholder="Nome para login" />
+    <div class="auth-columns">
+      <!-- LOGIN -->
+      <div class="auth-card">
+        <h2>Acesso</h2>
+        <div class="form-group">
+          <label for="login-email">Email</label>
+          <input type="email" id="login-email" autocomplete="email" />
+        </div>
+        <div class="form-group">
+          <label for="login-senha">Senha</label>
+          <input type="password" id="login-senha" autocomplete="current-password" />
+        </div>
+        <button id="btn-login" type="button" class="btn btn-primary full-width">
+          Entrar
+        </button>
+      </div>
+
+      <!-- CADASTRO -->
+      <div class="auth-card">
+        <h2>Novo Cadastro</h2>
+
+        <div class="form-group">
+          <label for="cad-nome">Nome</label>
+          <input type="text" id="cad-nome" autocomplete="name" />
+        </div>
+
+        <div class="form-group">
+          <label for="cad-email">Email</label>
+          <input type="email" id="cad-email" autocomplete="email" />
+        </div>
+
+        <div class="form-row">
+          <div class="col-2">
+            <label for="cad-dt-nasc">Data de Nascimento</label>
+            <input type="date" id="cad-dt-nasc" />
+          </div>
+          <div class="col-2">
+            <label for="cad-unidade">Unidade</label>
+            <select id="cad-unidade">
+              <option value="">Selecione...</option>
+              <option>ASPEC</option>
+              <option>ITARGET</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="col-2">
+            <label for="cad-senha">Senha</label>
+            <input type="password" id="cad-senha" autocomplete="new-password" />
+          </div>
+          <div class="col-2">
+            <label for="cad-senha2">Confirme a Senha</label>
+            <input type="password" id="cad-senha2" autocomplete="new-password" />
+          </div>
+        </div>
+
+        <p class="muted small">
+          Senha: até 10 caracteres, apenas letras e números (sem acentos ou símbolos).
+        </p>
+
+        <button id="btn-cadastrar" type="button" class="btn btn-secondary full-width">
+          Cadastrar usuário
+        </button>
+      </div>
     </div>
-    <div class="form-group">
-      <label for="cad-senha">Senha (até 10 caracteres, letras e números)</label>
-      <input type="password" id="cad-senha" maxlength="10" placeholder="Ex: diogo123" />
-    </div>
-    <div class="form-group">
-      <label for="cad-tipo">Tipo de conta</label>
-      <select id="cad-tipo">
-        <option value="PROGRAMADOR">Programador</option>
-        <option value="ATENDENTE">Atendente</option>
-        <option value="GESTOR">Gestor</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label for="cad-unidade">Unidade</label>
-      <select id="cad-unidade">
-        <option value="">Selecione...</option>
-        <option value="ASPEC">ASPEC</option>
-        <option value="ITARGET">ITARGET</option>
-      </select>
-    </div>
-    <button id="btn-cadastrar" class="btn btn-secondary" type="button">Cadastrar usuário</button>
-    <div id="auth-status" class="muted" style="margin-top:8px;"></div>
+
+    <div id="auth-status" class="auth-status muted"></div>
   </div>
 
-  <!-- APP -->
-  <main id="app-container" style="display:none;">
-    <header>
-      <div>
-        <strong>Cadastro de Demandas</strong>
-        <div style="font-size:12px;opacity:.85">Município / Tipo de Entidade / Programador / Andamentos</div>
+  <!-- ========================= -->
+  <!-- APP PRINCIPAL -->
+  <!-- ========================= -->
+  <div id="app-container" class="app-root" style="display:none;">
+
+    <!-- TOPO / HEADER -->
+    <header class="app-header">
+      <div class="header-left">
+        <span class="logo-dot"></span>
+        <span class="header-title">Sistema de Demandas</span>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:#d1d5db">
-        <span id="connection-label">Supabase conectado</span>
-        <span id="user-label"></span>
-        <button id="btn-graficos" class="btn btn-secondary btn-sm" type="button">Gráficos</button>
-        <button id="btn-logout" class="btn btn-secondary btn-sm" type="button">Sair</button>
+      <div class="header-right">
+        <span id="user-label" class="user-label muted"></span>
+
+        <button id="btn-graficos" type="button" class="btn btn-secondary btn-sm">
+          Gráficos
+        </button>
+
+        <button id="btn-logout" type="button" class="btn btn-outline btn-sm">
+          Sair
+        </button>
       </div>
     </header>
 
-    <!-- CARD GESTOR: APROVAÇÃO + GESTÃO DE USUÁRIOS -->
-    <section class="card" id="card-usuarios-pendentes" style="display:none;">
-      <h2>Gestão de Usuários</h2>
-      <div class="muted" style="margin-bottom:8px;">
-        Somente o gestor pode aprovar, editar ou inativar usuários.
-      </div>
+    <!-- BARRA DE INFORMAÇÃO PERFIL -->
+    <div class="top-info">
+      <p id="ajuda-perfil" class="muted small">
+        Carregando perfil...
+      </p>
+    </div>
 
-      <h3 style="font-size:14px;margin-top:0;">Pendentes de aprovação</h3>
-      <div style="max-height:180px;overflow:auto;">
-        <table>
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>Tipo</th>
-              <th>Unidade</th>
-              <th>Data cadastro</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody id="tabela-usuarios-pendentes"></tbody>
-        </table>
-      </div>
+    <!-- LAYOUT PRINCIPAL EM COLUNAS -->
+    <main class="main-layout">
 
-      <hr style="margin:10px 0">
+      <!-- COLUNA ESQUERDA: CADASTRO + LISTA -->
+      <section class="main-column">
 
-      <h3 style="font-size:14px;margin-top:0;">Usuários ativos / inativos</h3>
-      <div style="max-height:220px;overflow:auto;">
-        <table>
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>Tipo</th>
-              <th>Unidade</th>
-              <th>Status</th>
-              <th>Última atualização</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody id="tabela-usuarios-ativos"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- QUADRO DE AVISOS -->
-    <section class="card" id="quadro-avisos-card">
-      <h2>Quadro de Avisos</h2>
-      <div id="quadro-avisos" class="muted">Carregando avisos...</div>
-    </section>
-
-    <!-- FORM DE DEMANDA -->
-    <section class="card" id="card-form-demanda">
-      <h2 id="titulo-form">Nova Demanda</h2>
-      <form id="demanda-form">
-        <div class="form-row">
-          <div class="form-group col-2">
-            <label for="cliente">Município</label>
-            <input id="cliente" type="text" required placeholder="Ex: MILAGRES, CRATEÚS..." />
+        <!-- CADASTRO DE DEMANDA -->
+        <section id="sec-cadastro-demanda" class="card">
+          <div class="card-header">
+            <h2>Cadastro de Demanda</h2>
           </div>
-          <div class="form-group col-2">
-            <label for="tipo-entidade">Tipo de Entidade (CM, PM, CONSORCIO, IPM)</label>
-            <input id="tipo-entidade" type="text" placeholder="Ex: CM, PM, CONSORCIO, IPM..." />
-            <div id="sugestoes-tipo-entidade" class="suggestions-box muted"></div>
-          </div>
-        </div>
 
-        <div class="form-row">
-          <div class="form-group col-2">
-            <label for="contato-cliente">Contato Cliente</label>
-            <input id="contato-cliente" type="text" placeholder="Nome do contato" />
-            <div id="sugestoes-contato" class="suggestions-box muted"></div>
-          </div>
-          <div class="form-group col-2">
-            <label for="estado">Estado</label>
-            <select id="estado">
-              <option value="">Selecione...</option>
-              <option>Maranhão</option>
-              <option>Ceará</option>
-              <option>Pará</option>
-              <option>Rio Grande do Norte</option>
-              <option>Amapá</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group col-2">
-            <label for="atendente">Atendente</label>
-            <input id="atendente" type="text" placeholder="Preenchido automaticamente" readonly />
-            <div id="sugestoes-atendente" class="suggestions-box muted"></div>
-          </div>
-          <div class="form-group col-2">
-            <label for="link-trello">Link Trello</label>
-            <input id="link-trello" type="text" placeholder="URL do card no Trello" />
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group col-2">
-            <label for="link-email">Link e-mail (código)</label>
-            <input id="link-email" type="text" placeholder="Código / link do e-mail" />
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label for="assunto">Assunto (curto)</label>
-          <input id="assunto" type="text" required placeholder="Ex: ERRO NO CÁLCULO" />
-        </div>
-
-        <div class="form-group">
-          <label for="descricao">Descrição do problema</label>
-          <textarea id="descricao" required placeholder="Explique o problema..."></textarea>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group col-2">
-            <label>Status</label>
-            <select id="status-demanda">
-              <option>ABERTA</option>
-              <option>EM ANÁLISE</option>
-              <option>NA PROGRAMAÇÃO</option>
-              <option>CONCLUÍDA</option>
-            </select>
-          </div>
-          <div class="form-group col-2">
-            <label>Prioridade</label>
-            <select id="prioridade-demanda">
-              <option>BAIXA</option>
-              <option selected>MÉDIA</option>
-              <option>ALTA</option>
-              <option>URGENTE</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group col-2">
-            <label>Tags de Programadores</label>
-            <div class="tag-input-container" id="tags-programadores-container">
-              <input id="tags-programadores-input" class="tag-input" placeholder="Ex: Jonas, Carmelo, Ciro..." />
+          <form id="form-demanda" class="form-vertical">
+            <!-- Linha: Município + Tipo Entidade -->
+            <div class="form-row">
+              <div class="col-2">
+                <label for="dem-municipio">Município</label>
+                <input type="text" id="dem-municipio" />
+                <div id="sugs-municipio" class="chips-row"></div>
+              </div>
+              <div class="col-2">
+                <label for="dem-tipo-entidade">Tipo Entidade</label>
+                <input type="text" id="dem-tipo-entidade" placeholder="CM, PM, IPM, CONSORCIO..." />
+                <div id="sugs-tipo-entidade" class="chips-row"></div>
+              </div>
             </div>
-            <div id="sugestoes-programadores" class="suggestions-box muted"></div>
-          </div>
-          <div class="form-group col-2">
-            <label for="encaminhar-para">Encaminhar para</label>
-            <select id="encaminhar-para">
-              <option value="">(Nenhum)</option>
-            </select>
-            <div class="muted">Lista de usuários cadastrados (ATIVOS)</div>
-          </div>
-        </div>
 
-        <div class="form-row">
-          <div class="form-group col-2">
-            <label>Tags de Assunto</label>
-            <div class="tag-input-container" id="tags-assunto-container">
-              <input id="tags-assunto-input" class="tag-input" placeholder="Ex: folha, S-2200..." />
+            <!-- Linha: Contato Cliente + Estado -->
+            <div class="form-row">
+              <div class="col-2">
+                <label for="dem-contato-cliente">Contato Cliente</label>
+                <input type="text" id="dem-contato-cliente" />
+                <div id="sugs-contato-cliente" class="chips-row"></div>
+              </div>
+              <div class="col-2">
+                <label for="dem-estado">Estado</label>
+                <select id="dem-estado">
+                  <option value="">Selecione...</option>
+                  <option>CEARÁ</option>
+                  <option>MARANHÃO</option>
+                  <option>PARÁ</option>
+                  <option>RIO GRANDE DO NORTE</option>
+                  <option>AMAPÁ</option>
+                </select>
+              </div>
             </div>
-            <div id="sugestoes-assunto" class="suggestions-box muted"></div>
+
+            <!-- Linha: Assunto -->
+            <div class="form-group">
+              <label for="dem-assunto">Assunto</label>
+              <input type="text" id="dem-assunto" />
+              <div id="sugs-assunto" class="chips-row"></div>
+            </div>
+
+            <!-- Descrição -->
+            <div class="form-group">
+              <label for="dem-descricao">Descrição do problema</label>
+              <textarea id="dem-descricao"></textarea>
+            </div>
+
+            <!-- Linha: Programador + Forma de Atendimento -->
+            <div class="form-row">
+              <div class="col-2">
+                <label for="dem-programador">Programador</label>
+                <input type="text" id="dem-programador" placeholder="Ex.: Jonas" />
+                <div id="sugs-programador" class="chips-row"></div>
+              </div>
+              <div class="col-2">
+                <label for="dem-forma-atendimento">Forma de Atendimento</label>
+                <input
+                  type="text"
+                  id="dem-forma-atendimento"
+                  placeholder="AnyDesk, TeamViewer, Email..."
+                />
+                <div id="sugs-forma-atendimento" class="chips-row"></div>
+              </div>
+            </div>
+
+            <!-- Linha: Prioridade + Status -->
+            <div class="form-row">
+              <div class="col-2">
+                <label for="dem-prioridade">Prioridade</label>
+                <select id="dem-prioridade">
+                  <option>BAIXA</option>
+                  <option selected>MÉDIA</option>
+                  <option>ALTA</option>
+                  <option>URGENTE</option>
+                </select>
+              </div>
+              <div class="col-2">
+                <label for="dem-status">Status</label>
+                <select id="dem-status">
+                  <option>ABERTA</option>
+                  <option>EM ANÁLISE</option>
+                  <option>NA PROGRAMAÇÃO</option>
+                  <option>ENCAMINHADA</option>
+                  <option>CONCLUÍDA</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Linha: Links -->
+            <div class="form-row">
+              <div class="col-2">
+                <label for="dem-link-trello">Link Trello</label>
+                <input type="url" id="dem-link-trello" placeholder="https://..." />
+              </div>
+              <div class="col-2">
+                <label for="dem-link-email">Link Email (código)</label>
+                <input type="text" id="dem-link-email" placeholder="ID / código do email" />
+              </div>
+            </div>
+
+            <!-- Botão salvar -->
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">
+                Salvar Demanda
+              </button>
+              <span id="status-bar" class="muted small">Pronto</span>
+            </div>
+          </form>
+        </section>
+
+        <!-- LISTA DE DEMANDAS -->
+        <section id="sec-lista-demandas" class="card">
+          <div class="card-header">
+            <h2>Demandas</h2>
           </div>
-        </div>
 
-        <div class="form-group">
-          <label>Forma de Atendimento</label>
-          <div class="tag-input-container" id="forma-atendimento-container">
-            <input id="forma-atendimento-input" class="tag-input" placeholder="ANYDESK, TEAMVIEWER, EMAIL, TELEFONE..." />
+          <!-- FILTROS -->
+          <div class="filtros-wrapper">
+            <div class="form-row">
+              <div class="col-2">
+                <label for="filtro-status">Status</label>
+                <select id="filtro-status">
+                  <option value="TODOS">Todos</option>
+                  <option value="ABERTA">Aberta</option>
+                  <option value="EM ANÁLISE">Em Análise</option>
+                  <option value="NA PROGRAMAÇÃO">Na Programação</option>
+                  <option value="ENCAMINHADA">Encaminhada</option>
+                  <option value="CONCLUÍDA">Concluída</option>
+                </select>
+              </div>
+              <div class="col-2">
+                <label for="filtro-atendente">Atendente</label>
+                <select id="filtro-atendente">
+                  <option value="TODOS">Todos</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="col-2">
+                <label for="filtro-programador">Programador</label>
+                <select id="filtro-programador">
+                  <option value="TODOS">Todos</option>
+                </select>
+              </div>
+              <div class="col-2">
+                <label for="filtro-municipio">Município</label>
+                <select id="filtro-municipio">
+                  <option value="TODOS">Todos</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="col-2">
+                <label for="filtro-estado">Estado</label>
+                <select id="filtro-estado">
+                  <option value="TODOS">Todos</option>
+                  <option>CEARÁ</option>
+                  <option>MARANHÃO</option>
+                  <option>PARÁ</option>
+                  <option>RIO GRANDE DO NORTE</option>
+                  <option>AMAPÁ</option>
+                </select>
+              </div>
+              <div class="col-2">
+                <label for="filtro-tipo-entidade">Tipo Entidade</label>
+                <select id="filtro-tipo-entidade">
+                  <option value="TODOS">Todos</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row align-center">
+              <div class="col-2">
+                <label for="filtro-busca">Busca (código / assunto / descrição)</label>
+                <input type="text" id="filtro-busca" placeholder="Digite para filtrar..." />
+              </div>
+              <div class="col-2 checkbox-row">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="filtro-ocultar-concluidas" />
+                  Ocultar concluídas
+                </label>
+              </div>
+            </div>
           </div>
-          <div class="muted" style="margin-top:4px">Digite e use vírgula ou Enter para virar tag.</div>
-          <div id="sugestoes-forma" class="suggestions-box muted"></div>
-        </div>
 
-        <button id="btn-salvar" class="btn btn-primary" type="submit">💾 Salvar Demanda</button>
-        <button id="btn-cancelar-edicao" type="button" class="btn btn-secondary" style="display:none;margin-left:8px">✖ Cancelar</button>
-      </form>
+          <!-- TABELA -->
+          <div class="tabela-wrapper">
+            <table class="tabela-demandas">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Município</th>
+                  <th>Assunto</th>
+                  <th>Status</th>
+                  <th>Prioridade</th>
+                </tr>
+              </thead>
+              <tbody id="tabela-demandas">
+                <!-- Linhas geradas via JS -->
+              </tbody>
+            </table>
+          </div>
 
-      <div id="status-bar" class="status-bar">Status: pronto</div>
-    </section>
+          <div class="tabela-footer">
+            <span id="total-demandas" class="muted small">Total: 0</span>
+          </div>
+        </section>
+      </section>
 
-    <!-- LISTA DEMANDAS NÃO ENCAMINHADAS -->
-    <section class="card" id="card-lista-demandas">
-      <h2>Demandas (não encaminhadas)</h2>
+      <!-- COLUNA DIREITA: DETALHES E PAINEL GESTOR -->
+      <aside class="side-column">
 
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
-        <div>
-          <label class="muted">Município</label>
-          <select id="filtro-cliente"><option value="">Todos</option></select>
-        </div>
-        <div>
-          <label class="muted">Tipo Entidade</label>
-          <select id="filtro-tipo-entidade"><option value="">Todos</option></select>
-        </div>
-        <div>
-          <label class="muted">Estado</label>
-          <select id="filtro-estado"><option value="">Todos</option></select>
-        </div>
-        <div>
-          <label class="muted">Atendente</label>
-          <select id="filtro-atendente"><option value="">Todos</option></select>
-        </div>
-      </div>
+        <!-- DETALHES DA DEMANDA -->
+        <section id="sec-detalhes-demanda" class="card">
+          <div class="card-header">
+            <h2>Detalhes da Demanda</h2>
+          </div>
 
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
-        <div>
-          <label class="muted">Programador</label>
-          <select id="filtro-programador"><option value="">Todos</option></select>
-        </div>
-        <div>
-          <label class="muted">Forma Atendimento</label>
-          <select id="filtro-forma"><option value="">Todas</option></select>
-        </div>
-        <div>
-          <label class="muted">Prioridade</label>
-          <select id="filtro-prioridade">
-            <option value="">Todas</option>
-            <option>URGENTE</option>
-            <option>ALTA</option>
-            <option>MÉDIA</option>
-            <option>BAIXA</option>
-          </select>
-        </div>
-        <div>
-          <label class="muted">Status</label>
-          <select id="filtro-status">
-            <option value="">Todos</option>
-            <option>ABERTA</option>
-            <option>EM ANÁLISE</option>
-            <option>NA PROGRAMAÇÃO</option>
-            <option>CONCLUÍDA</option>
-          </select>
-        </div>
-      </div>
+          <input type="hidden" id="det-demanda-id" />
 
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;align-items:flex-end">
-        <div style="flex:1;min-width:220px">
-          <label class="muted">Busca geral (município, assunto, descrição, andamentos...)</label>
-          <input id="filtro-texto" type="text" placeholder="Digite para filtrar em tempo real..." />
-        </div>
-        <div style="display:flex;gap:6px;margin-left:auto">
-          <button id="btn-toggle-concluidas" class="btn btn-secondary" type="button">Ocultar concluídas</button>
-          <button id="btn-recarregar" class="btn btn-secondary" type="button">🔄 Recarregar</button>
-        </div>
-      </div>
+          <div class="details-grid">
+            <div class="detail-item">
+              <span class="detail-label">Código</span>
+              <span id="det-codigo" class="detail-value">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Município</span>
+              <span id="det-municipio" class="detail-value">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Tipo Entidade</span>
+              <span id="det-tipo-entidade" class="detail-value">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Contato Cliente</span>
+              <span id="det-contato-cliente" class="detail-value">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Estado</span>
+              <span id="det-estado" class="detail-value">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Assunto</span>
+              <span id="det-assunto" class="detail-value">-</span>
+            </div>
+            <div class="detail-item detail-full">
+              <span class="detail-label">Descrição</span>
+              <span id="det-descricao" class="detail-value multiline">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Programador</span>
+              <span id="det-programador" class="detail-value">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Forma de Atendimento</span>
+              <span id="det-forma-atendimento" class="detail-value">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Prioridade</span>
+              <span id="det-prioridade" class="detail-value">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Status</span>
+              <span id="det-status" class="detail-value">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Atendente</span>
+              <span id="det-atendente" class="detail-value">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Link Trello</span>
+              <span id="det-link-trello" class="detail-value">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Link Email</span>
+              <span id="det-link-email" class="detail-value">-</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Criado em</span>
+              <span id="det-criado-em" class="detail-value">-</span>
+            </div>
+          </div>
 
-      <div class="muted" id="resumo-demandas" style="margin-bottom:8px"></div>
+          <!-- ATUALIZAÇÕES -->
+          <div class="updates-block">
+            <h3>Atualizações</h3>
+            <ul id="lista-atualizacoes" class="updates-list">
+              <!-- Preenchido via JS -->
+            </ul>
 
-      <div style="max-height:260px;overflow:auto">
-        <table>
-          <thead>
-            <tr>
-              <th>Código</th>
-              <th>Município / Tipo Entidade / Assunto</th>
-              <th>Programadores</th>
-              <th>Prioridade</th>
-              <th>Status</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody id="tabela-demandas"></tbody>
-        </table>
-      </div>
-    </section>
+            <form id="form-atualizacao-demanda" class="update-form">
+              <label for="nova-atualizacao-texto">Nova atualização</label>
+              <textarea
+                id="nova-atualizacao-texto"
+                placeholder="Descreva o andamento, testes realizados, dúvidas, etc."
+              ></textarea>
+              <button type="submit" class="btn btn-primary btn-sm">
+                Registrar atualização
+              </button>
+            </form>
+          </div>
+        </section>
 
-    <!-- LISTA DEMANDAS ENCAMINHADAS -->
-    <section class="card" id="card-lista-encaminhadas">
-      <h2>Demandas Encaminhadas</h2>
-      <div class="muted" id="resumo-encaminhadas" style="margin-bottom:8px"></div>
-      <div style="max-height:260px;overflow:auto">
-        <table>
-          <thead>
-            <tr>
-              <th>Código</th>
-              <th>Encaminhada para</th>
-              <th>Município / Assunto</th>
-              <th>Programadores</th>
-              <th>Prioridade</th>
-              <th>Status</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody id="tabela-encaminhadas"></tbody>
-        </table>
-      </div>
-    </section>
-  </main>
+        <!-- PAINEL DO GESTOR -->
+        <section id="sec-painel-gestor" class="card">
+          <div class="card-header">
+            <h2>Painel do Gestor</h2>
+          </div>
 
-  <!-- MODAL DETALHES -->
-  <div id="detalhes-overlay" class="modal-overlay">
-    <div class="modal">
-      <div class="modal-header">
-        <div class="modal-title" id="detalhes-titulo">Detalhes da Demanda</div>
-        <button type="button" id="btn-fechar-detalhes" class="btn btn-secondary btn-sm">Fechar</button>
-      </div>
+          <div class="muted small" style="margin-bottom:8px;">
+            Aqui você poderá acompanhar produção por usuário, status, estado, etc.
+            (A base já está pronta no JS; é só plugar os gráficos/consultas que quiser).
+          </div>
 
-      <div id="detalhes-cabecalho" style="margin-bottom:10px"></div>
+          <div class="gestor-grid">
+            <div class="gestor-card">
+              <h4>Últimas 10 Demandas (geral)</h4>
+              <ul id="gestor-ultimas-demandas" class="small-list">
+                <!-- preenchido futuramente -->
+              </ul>
+            </div>
+            <div class="gestor-card">
+              <h4>Últimas por Estado</h4>
+              <ul id="gestor-por-estado" class="small-list">
+                <!-- preenchido futuramente -->
+              </ul>
+            </div>
+            <div class="gestor-card">
+              <h4>Produção por Usuário</h4>
+              <ul id="gestor-por-usuario" class="small-list">
+                <!-- preenchido futuramente -->
+              </ul>
+            </div>
+          </div>
+        </section>
 
-      <div style="display:flex;flex-wrap:wrap;gap:10px;font-size:12px;margin-bottom:10px">
-        <div><strong>Município:</strong> <span id="detalhes-municipio"></span></div>
-        <div><strong>Tipo Entidade:</strong> <span id="detalhes-tipo-entidade"></span></div>
-      </div>
-
-      <div style="display:flex;flex-wrap:wrap;gap:10px;font-size:12px;margin-bottom:10px">
-        <div><strong>Contato:</strong> <span id="detalhes-contato"></span></div>
-        <div><strong>Estado:</strong> <span id="detalhes-estado"></span></div>
-        <div><strong>Atendente:</strong> <span id="detalhes-atendente"></span></div>
-      </div>
-
-      <div style="display:flex;flex-wrap:wrap;gap:10px;font-size:12px;margin-bottom:10px">
-        <div><strong>Link Trello:</strong> <span id="detalhes-trello"></span></div>
-        <div><strong>Link e-mail:</strong> <span id="detalhes-email"></span></div>
-      </div>
-
-      <div style="display:flex;flex-wrap:wrap;gap:10px;font-size:12px;margin-bottom:10px">
-        <div><strong>Encaminhar para:</strong> <span id="detalhes-encaminhar"></span></div>
-      </div>
-
-      <div style="margin-bottom:8px">
-        <strong>Descrição</strong>
-        <div id="detalhes-descricao" style="white-space:pre-wrap;font-size:13px;margin-top:4px"></div>
-      </div>
-
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;font-size:12px">
-        <div><strong>Forma de atendimento:</strong> <span id="detalhes-forma"></span></div>
-        <div><strong>Programadores:</strong> <span id="detalhes-programadores"></span></div>
-        <div><strong>Tags assunto:</strong> <span id="detalhes-tags-assunto"></span></div>
-      </div>
-
-      <div style="font-size:12px;margin-bottom:12px">
-        <div>Data/hora (PC no cadastro): <span id="detalhes-data-pc"></span></div>
-        <div>Data/hora (servidor): <span id="detalhes-data-servidor"></span></div>
-      </div>
-
-      <hr style="margin:10px 0">
-
-      <div style="margin-bottom:8px">
-        <strong>Andamentos da demanda</strong>
-      </div>
-      <div id="lista-andamentos" style="font-size:13px;margin-bottom:10px"></div>
-
-      <div>
-        <label for="novo-andamento-texto" style="font-size:13px;font-weight:600;margin-bottom:4px;display:block">Novo andamento</label>
-        <textarea id="novo-andamento-texto" style="width:100%;min-height:60px;resize:vertical"></textarea>
-        <button id="btn-salvar-andamento" class="btn btn-primary btn-sm" style="margin-top:6px">➕ Adicionar andamento</button>
-      </div>
-    </div>
+      </aside>
+    </main>
   </div>
 
-  <!-- MODAL GRÁFICOS -->
-  <div id="graficos-overlay" class="modal-overlay">
-    <div class="modal">
-      <div class="modal-header">
-        <div class="modal-title">Gráficos / Resumos</div>
-        <button type="button" id="btn-fechar-graficos" class="btn btn-secondary btn-sm">Fechar</button>
-      </div>
-      <div id="graficos-conteudo"></div>
-    </div>
-  </div>
-
-  <!-- MODAL DEVOLVER -->
-  <div id="devolver-overlay" class="modal-overlay">
-    <div class="modal" style="max-width:420px;">
-      <div class="modal-header">
-        <div class="modal-title">Devolver demanda</div>
-        <button type="button" id="btn-fechar-devolver" class="btn btn-secondary btn-sm">Fechar</button>
-      </div>
-      <div id="devolver-info" class="muted" style="margin-bottom:8px;"></div>
-      <div class="form-group">
-        <label for="devolver-select">Devolver para</label>
-        <select id="devolver-select"></select>
-      </div>
-      <button id="btn-confirmar-devolver" class="btn btn-primary btn-sm" type="button">Confirmar devolução</button>
-    </div>
-  </div>
-
-  <!-- MODAL EDITAR USUÁRIO -->
-  <div id="editar-usuario-overlay" class="modal-overlay">
-    <div class="modal" style="max-width:420px;">
-      <div class="modal-header">
-        <div class="modal-title">Editar usuário</div>
-        <button type="button" id="btn-fechar-editar-usuario" class="btn btn-secondary btn-sm">Fechar</button>
-      </div>
-      <div class="form-group">
-        <label for="edit-usuario-nome">Nome</label>
-        <input type="text" id="edit-usuario-nome" />
-      </div>
-      <div class="form-group">
-        <label for="edit-usuario-senha">Senha (deixe em branco para não alterar)</label>
-        <input type="password" id="edit-usuario-senha" maxlength="10" placeholder="Até 10 caracteres, letras e números" />
-      </div>
-      <div class="form-group">
-        <label for="edit-usuario-tipo">Tipo</label>
-        <select id="edit-usuario-tipo">
-          <option value="PROGRAMADOR">Programador</option>
-          <option value="ATENDENTE">Atendente</option>
-          <option value="GESTOR">Gestor</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="edit-usuario-unidade">Unidade</label>
-        <select id="edit-usuario-unidade">
-          <option value="">Selecione...</option>
-          <option value="ASPEC">ASPEC</option>
-          <option value="ITARGET">ITARGET</option>
-        </select>
-      </div>
-      <div id="edit-usuario-status" class="muted" style="margin-bottom:8px;"></div>
-      <button type="button" id="btn-salvar-editar-usuario" class="btn btn-primary btn-sm">Salvar alterações</button>
-    </div>
-  </div>
-
+  <!-- ========================= -->
+  <!-- APP JS -->
+  <!-- ========================= -->
   <script>
+    // Usa os dados que você passou
     const SUPABASE_URL = "https://cmxepgkkdvyfraesvqly.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNteGVwZ2trZHZ5ZnJhZXN2cWx5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3ODA2NDksImV4cCI6MjA4MDM1NjY0OX0.rQMjA0pyJ2gWvPlyuQr0DccdkUs24NQTdsQvgiN2QXY";
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    let currentUser = null;
-    let usuariosCache = [];
-    let demandasCache = [];
-    let andamentosPorDemanda = {};
-    let andamentosLista = [];
-    let ocultarConcluidas = false;
-
-    let editingId = null;
-    let demandaEmEdicao = null;
-
-    const authContainer = document.getElementById('auth-container');
-    const appContainer = document.getElementById('app-container');
-    const userLabel = document.getElementById('user-label');
-    const connectionLabel = document.getElementById('connection-label');
-    const quadroAvisosEl = document.getElementById('quadro-avisos');
-
-    const cardUsuariosPendentes = document.getElementById('card-usuarios-pendentes');
-    const tabelaUsuariosPendentes = document.getElementById('tabela-usuarios-pendentes');
-    const tabelaUsuariosAtivos = document.getElementById('tabela-usuarios-ativos');
-
-    const cardFormDemanda = document.getElementById('card-form-demanda');
-    const cardListaDemandas = document.getElementById('card-lista-demandas');
-    const cardListaEnc = document.getElementById('card-lista-encaminhadas');
-    const resumoEncaminhadas = document.getElementById('resumo-encaminhadas');
-    const tabelaEncaminhadas = document.getElementById('tabela-encaminhadas');
-
-    const btnLogout = document.getElementById('btn-logout');
-
-    const form = document.getElementById('demanda-form');
-    const statusBar = document.getElementById('status-bar');
-    const tabela = document.getElementById('tabela-demandas');
-
-    const filtroCliente = document.getElementById('filtro-cliente');
-    const filtroTipoEntidade = document.getElementById('filtro-tipo-entidade');
-    const filtroEstado = document.getElementById('filtro-estado');
-    const filtroAtendente = document.getElementById('filtro-atendente');
-    const filtroProgramador = document.getElementById('filtro-programador');
-    const filtroForma = document.getElementById('filtro-forma');
-    const filtroPrio = document.getElementById('filtro-prioridade');
-    const filtroStatus = document.getElementById('filtro-status');
-    const filtroTexto = document.getElementById('filtro-texto');
-    const resumo = document.getElementById('resumo-demandas');
-    const btnRecarregar = document.getElementById('btn-recarregar');
-    const btnCancelarEdicao = document.getElementById('btn-cancelar-edicao');
-    const btnToggleConcluidas = document.getElementById('btn-toggle-concluidas');
-    const selectEncaminhar = document.getElementById('encaminhar-para');
-
-    const btnGraficos = document.getElementById('btn-graficos');
-    const graficosOverlay = document.getElementById('graficos-overlay');
-    const btnFecharGraficos = document.getElementById('btn-fechar-graficos');
-    const graficosConteudo = document.getElementById('graficos-conteudo');
-
-    const campoCliente = document.getElementById('cliente');
-    const campoAssunto = document.getElementById('assunto');
-    const campoAtendente = document.getElementById('atendente');
-
-    function setStatus(t){ statusBar.textContent = 'Status: ' + t; }
-
-    ['input','blur'].forEach(ev=>{
-      campoCliente.addEventListener(ev, ()=>{ campoCliente.value = campoCliente.value.toUpperCase(); });
-      campoAssunto.addEventListener(ev, ()=>{ campoAssunto.value = campoAssunto.value.toUpperCase(); });
-    });
-
-    btnLogout.addEventListener('click', ()=>{ currentUser = null; location.reload(); });
-
-    function createTagInput(containerId, inputId) {
-      const container = document.getElementById(containerId);
-      const input = document.getElementById(inputId);
-      const tags = [];
-
-      function render() {
-        Array.from(container.querySelectorAll('.tag-chip')).forEach(c => c.remove());
-        tags.forEach((t, i) => {
-          const chip = document.createElement('span');
-          chip.className = 'tag-chip';
-          chip.textContent = t;
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.textContent = 'x';
-          btn.addEventListener('click', () => {
-            tags.splice(i, 1);
-            render();
-            atualizarTodasSugestoes();
-          });
-          chip.appendChild(btn);
-          container.insertBefore(chip, input);
-        });
-      }
-
-      function addSingleTag(value) {
-        const v = String(value || '').trim();
-        if (!v) return;
-        if (!tags.includes(v)) {
-          tags.push(v);
-          render();
-          atualizarTodasSugestoes();
-        }
-      }
-
-      function splitAndAdd(str) {
-        if (!str) return '';
-        const parts = String(str).split(/[,;]+/);
-        const last = parts.pop();
-        parts.map(s => s.trim()).filter(Boolean).forEach(addSingleTag);
-        return last || '';
-      }
-
-      container.addEventListener('click', () => input.focus());
-
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          input.value = splitAndAdd(input.value);
-          if (input.value.trim()) {
-            addSingleTag(input.value);
-            input.value = '';
-          }
-        } else if (e.key === 'Backspace' && !input.value && tags.length > 0) {
-          tags.pop();
-          render();
-          atualizarTodasSugestoes();
-        }
-      });
-
-      input.addEventListener('input', () => {
-        if (input.value.includes(',') || input.value.includes(';')) {
-          input.value = splitAndAdd(input.value);
-        }
-      });
-
-      input.addEventListener('blur', () => {
-        if (input.value.trim()) {
-          input.value = splitAndAdd(input.value);
-          if (input.value.trim()) {
-            addSingleTag(input.value);
-            input.value = '';
-          }
-        }
-      });
-
-      return {
-        getTags() { return [...tags]; },
-        clear() { tags.splice(0, tags.length); render(); input.value = ''; atualizarTodasSugestoes(); },
-        setTags(array) {
-          tags.splice(0, tags.length);
-          (array || []).forEach(x => {
-            const v = String(x || '').trim();
-            if (v && !tags.includes(v)) tags.push(v);
-          });
-          render();
-          atualizarTodasSugestoes();
-        },
-        addTag(v){ addSingleTag(v); }
-      };
-    }
-
-    const tagProgramadores = createTagInput('tags-programadores-container','tags-programadores-input');
-    const tagAssunto = createTagInput('tags-assunto-container','tags-assunto-input');
-    const tagForma = createTagInput('forma-atendimento-container','forma-atendimento-input');
-
-    async function carregarUsuarios(){
-      const { data, error } = await supabaseClient.from('usuarios').select('*').order('nome');
-      if(error){
-        console.error(error);
-        document.getElementById('auth-status').textContent = 'Erro ao carregar usuários.';
-        return;
-      }
-      usuariosCache = (data || []).map(u=>({
-        ...u,
-        nome: (u.nome || '').trim()
-      })).filter(u=>u.nome);
-
-      preencherSelectEncaminhar();
-      renderizarUsuariosGestor();
-      atualizarQuadroAvisos();
-    }
-
-    function preencherSelectEncaminhar(){
-      const prev = selectEncaminhar.value;
-      selectEncaminhar.innerHTML = '<option value="">(Nenhum)</option>';
-      usuariosCache
-        .filter(u => (u.status || 'PENDENTE') === 'ATIVO')
-        .forEach(u=>{
-          const opt = document.createElement('option');
-          opt.value = u.nome;
-          opt.textContent = `${u.nome} (${u.tipo})`;
-          selectEncaminhar.appendChild(opt);
-        });
-      if(prev) selectEncaminhar.value = prev;
-    }
-
-    async function fazerLogin(){
-      const nome = document.getElementById('login-nome').value.trim();
-      const senha = document.getElementById('login-senha').value.trim();
-      const authStatus = document.getElementById('auth-status');
-      authStatus.textContent = '';
-
-      if(!nome || !senha){
-        authStatus.textContent = 'Informe nome e senha.';
-        return;
-      }
-
-      try{
-        // tenta ATIVO
-        let { data, error } = await supabaseClient
-          .from('usuarios')
-          .select('*')
-          .eq('nome', nome)
-          .eq('senha', senha)
-          .eq('status','ATIVO');
-
-        if(error){
-          console.error(error);
-          authStatus.textContent = 'Erro ao autenticar.';
-          return;
-        }
-
-        if(!data || data.length === 0){
-          // verifica pendente
-          const pendRes = await supabaseClient
-            .from('usuarios')
-            .select('*')
-            .eq('nome', nome)
-            .eq('senha', senha)
-            .eq('status','PENDENTE');
-          if(pendRes.data && pendRes.data.length > 0){
-            authStatus.textContent = 'Seu cadastro está pendente de aprovação pelo gestor.';
-            return;
-          }
-
-          // verifica inativo
-          const inaRes = await supabaseClient
-            .from('usuarios')
-            .select('*')
-            .eq('nome', nome)
-            .eq('senha', senha)
-            .eq('status','INATIVO');
-          if(inaRes.data && inaRes.data.length > 0){
-            authStatus.textContent = 'Seu usuário está inativo. Procure o gestor para reativação.';
-            return;
-          }
-
-          authStatus.textContent = 'Usuário ou senha inválidos.';
-          return;
-        }
-
-        const user = data[0];
-        currentUser = user;
-
-        authContainer.style.display = 'none';
-        appContainer.style.display = 'block';
-        userLabel.textContent = `${currentUser.nome} (${currentUser.tipo} · ${currentUser.unidade || '-'})`;
-        connectionLabel.textContent = 'Supabase conectado';
-
-        if(currentUser.tipo === 'ATENDENTE' || currentUser.tipo === 'GESTOR'){
-          campoAtendente.value = currentUser.nome;
-          campoAtendente.readOnly = true;
-        }
-
-        configurarInterfacePorTipo();
-        await carregarUsuarios();
-        await carregarDemandas();
-      }catch(err){
-        console.error(err);
-        authStatus.textContent = 'Erro ao autenticar.';
-      }
-    }
-
-    function senhaValida(s){
-      return /^[A-Za-z0-9]{1,10}$/.test(s);
-    }
-
-    async function cadastrarUsuario(){
-      const nome = document.getElementById('cad-nome').value.trim();
-      const senha = document.getElementById('cad-senha').value.trim();
-      const tipo = document.getElementById('cad-tipo').value;
-      const unidade = document.getElementById('cad-unidade').value;
-      const authStatus = document.getElementById('auth-status');
-      authStatus.textContent = '';
-
-      if(!nome || !senha || !unidade){
-        authStatus.textContent = 'Informe nome, senha e unidade.';
-        return;
-      }
-      if(!senhaValida(senha)){
-        authStatus.textContent = 'Senha deve ter de 1 a 10 caracteres, apenas letras e números (sem acentos ou símbolos).';
-        return;
-      }
-
-      try{
-        const { data: ja } = await supabaseClient
-          .from('usuarios')
-          .select('id')
-          .eq('nome', nome)
-          .limit(1);
-        if(ja && ja.length>0){
-          authStatus.textContent = 'Já existe um usuário com esse nome.';
-          return;
-        }
-
-        const { error } = await supabaseClient.from('usuarios').insert([{
-          nome,
-          senha,
-          tipo,
-          unidade,
-          status: 'PENDENTE'
-        }]);
-        if(error){
-          console.error(error);
-          authStatus.textContent = 'Erro ao cadastrar usuário.';
-          return;
-        }
-        authStatus.textContent = 'Cadastro enviado para aprovação do gestor. Aguarde liberação.';
-        document.getElementById('cad-nome').value = '';
-        document.getElementById('cad-senha').value = '';
-        document.getElementById('cad-unidade').value = '';
-
-        await carregarUsuarios();
-      }catch(err){
-        console.error(err);
-        authStatus.textContent = 'Erro ao cadastrar.';
-      }
-    }
-
-    document.getElementById('btn-login').addEventListener('click', fazerLogin);
-    document.getElementById('btn-cadastrar').addEventListener('click', cadastrarUsuario);
-    document.getElementById('login-senha').addEventListener('keydown',e=>{ if(e.key==='Enter') fazerLogin(); });
-
-    async function gerarCodigoDemanda(){
-      const ano = new Date().getFullYear();
-      const { data, error } = await supabaseClient
-        .from('demandas')
-        .select('seq')
-        .eq('ano', ano)
-        .order('seq', { ascending: false })
-        .limit(1);
-      if(error) throw error;
-      let proximo = 1;
-      if(data && data.length>0 && data[0].seq != null) proximo = data[0].seq + 1;
-      const seqStr = String(proximo).padStart(5,'0');
-      return { ano, seq: proximo, codigo: `D${ano}${seqStr}` };
-    }
-
-    btnCancelarEdicao.addEventListener('click', ()=>{ sairModoEdicao(); setStatus('Edição cancelada'); });
-
-    form.addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      if(!currentUser || (currentUser.tipo==='PROGRAMADOR')){
-        alert('Você não tem permissão para cadastrar/editar demandas.');
-        return;
-      }
-
-      const cliente = document.getElementById('cliente').value.trim().toUpperCase();
-      const tipoEntidade = document.getElementById('tipo-entidade').value.trim().toUpperCase();
-      const contatoCliente = document.getElementById('contato-cliente').value.trim();
-      const estado = document.getElementById('estado').value;
-      const atendenteForm = document.getElementById('atendente').value.trim() || (currentUser ? currentUser.nome : '');
-      const linkTrello = document.getElementById('link-trello').value.trim();
-      const linkEmail = document.getElementById('link-email').value.trim();
-      const assunto = document.getElementById('assunto').value.trim().toUpperCase();
-      const descricao = document.getElementById('descricao').value.trim();
-      const statusVal = document.getElementById('status-demanda').value;
-      const prioridadeVal = document.getElementById('prioridade-demanda').value;
-      const encaminharPara = document.getElementById('encaminhar-para').value || null;
-      const tagsProg = tagProgramadores.getTags();
-      const tagsAss = tagAssunto.getTags();
-      const formas = tagForma.getTags();
-
-      if(!cliente || !assunto || !descricao){
-        alert('Preencha Município, assunto e descrição');
-        return;
-      }
-      document.getElementById('btn-salvar').disabled = true;
-
-      try{
-        if(!editingId){
-          setStatus('Gerando código e salvando...');
-          const { ano, seq, codigo } = await gerarCodigoDemanda();
-          const agora = new Date().toLocaleString('pt-BR');
-
-          const { data: novaDemanda, error } = await supabaseClient
-            .from('demandas')
-            .insert([{
-              codigo, ano, seq,
-              cliente,
-              tipo_entidade: tipoEntidade,
-              contato_cliente: contatoCliente,
-              estado,
-              atendente: currentUser.nome,
-              link_trello: linkTrello,
-              link_email: linkEmail,
-              assunto,
-              descricao,
-              tags_programadores: tagsProg,
-              tags_assunto: tagsAss,
-              forma_atendimento: formas,
-              status: statusVal,
-              prioridade: prioridadeVal,
-              encaminhar_para: encaminharPara,
-              encaminhar_de: encaminharPara ? currentUser.nome : null,
-              data_hora_local: agora
-            }])
-            .select()
-            .single();
-          if(error) throw error;
-
-          const textoAndamento = encaminharPara
-            ? `Demanda criada por ${currentUser.nome} e encaminhada para ${encaminharPara}.`
-            : `Demanda criada por ${currentUser.nome}.`;
-
-          await supabaseClient.from('demandas_andamentos').insert([{
-            demanda_id: novaDemanda.id,
-            descricao: textoAndamento,
-            autor: currentUser.nome,
-            data_hora_local: agora
-          }]);
-
-          setStatus('Demanda salva: ' + codigo);
-        } else {
-          setStatus('Atualizando demanda...');
-
-          let atendenteFinal = demandaEmEdicao ? demandaEmEdicao.atendente : currentUser.nome;
-          if(demandaEmEdicao && demandaEmEdicao.atendente === currentUser.nome){
-            atendenteFinal = atendenteForm || currentUser.nome;
-          }
-
-          const encaminharAntes = demandaEmEdicao ? demandaEmEdicao.encaminhar_para : null;
-
-          const { error } = await supabaseClient.from('demandas').update({
-            cliente,
-            tipo_entidade: tipoEntidade,
-            contato_cliente: contatoCliente,
-            estado,
-            atendente: atendenteFinal,
-            link_trello: linkTrello,
-            link_email: linkEmail,
-            assunto,
-            descricao,
-            tags_programadores: tagsProg,
-            tags_assunto: tagsAss,
-            forma_atendimento: formas,
-            status: statusVal,
-            prioridade: prioridadeVal,
-            encaminhar_para: encaminharPara,
-            encaminhar_de: encaminharPara ? currentUser.nome : null
-          }).eq('id', editingId);
-
-          if(error) throw error;
-
-          if (demandaEmEdicao && encaminharAntes !== encaminharPara && encaminharPara) {
-            const dataHoraLocal = new Date().toLocaleString('pt-BR');
-            await supabaseClient.from('demandas_andamentos').insert([{
-              demanda_id: editingId,
-              descricao: `Demanda encaminhada para ${encaminharPara} por ${currentUser.nome}.`,
-              autor: currentUser.nome,
-              data_hora_local: dataHoraLocal
-            }]);
-          }
-
-          setStatus('Demanda atualizada');
-        }
-        sairModoEdicao();
-        await carregarDemandas();
-      }catch(err){
-        console.error(err);
-        alert('Erro: ' + (err.message || JSON.stringify(err)));
-        setStatus('Erro ao salvar');
-      }finally{
-        document.getElementById('btn-salvar').disabled = false;
-      }
-    });
-
-    function entrarModoEdicao(d){
-      if(!currentUser || (currentUser.tipo==='PROGRAMADOR')){
-        alert('Você não tem permissão para editar demandas.');
-        return;
-      }
-      editingId = d.id;
-      demandaEmEdicao = d;
-      document.getElementById('titulo-form').textContent = `Editar Demanda (${d.codigo})`;
-      document.getElementById('cliente').value = (d.cliente || '').toUpperCase();
-      document.getElementById('tipo-entidade').value = d.tipo_entidade || '';
-      document.getElementById('contato-cliente').value = d.contato_cliente || '';
-      document.getElementById('estado').value = d.estado || '';
-      campoAtendente.value = d.atendente || '';
-      campoAtendente.readOnly = !(currentUser && d.atendente && d.atendente === currentUser.nome);
-      document.getElementById('link-trello').value = d.link_trello || '';
-      document.getElementById('link-email').value = d.link_email || '';
-      document.getElementById('assunto').value = (d.assunto || '').toUpperCase();
-      document.getElementById('descricao').value = d.descricao || '';
-      document.getElementById('status-demanda').value = d.status || 'ABERTA';
-      document.getElementById('prioridade-demanda').value = d.prioridade || 'MÉDIA';
-      document.getElementById('encaminhar-para').value = d.encaminhar_para || '';
-      tagProgramadores.setTags(d.tags_programadores || []);
-      tagAssunto.setTags(d.tags_assunto || []);
-      tagForma.setTags(d.forma_atendimento || []);
-      document.getElementById('btn-salvar').textContent = '✔ Atualizar Demanda';
-      btnCancelarEdicao.style.display = 'inline-flex';
-    }
-
-    function sairModoEdicao(){
-      editingId = null;
-      demandaEmEdicao = null;
-      document.getElementById('titulo-form').textContent = 'Nova Demanda';
-      form.reset();
-      tagProgramadores.clear();
-      tagAssunto.clear();
-      tagForma.clear();
-      if(currentUser && (currentUser.tipo==='ATENDENTE' || currentUser.tipo==='GESTOR')){
-        campoAtendente.value = currentUser.nome;
-      } else {
-        campoAtendente.value = '';
-      }
-      campoAtendente.readOnly = true;
-      document.getElementById('encaminhar-para').value = '';
-      document.getElementById('btn-salvar').textContent = '💾 Salvar Demanda';
-      btnCancelarEdicao.style.display = 'none';
-    }
-
-    async function excluirDemanda(d){
-      if(!currentUser || (currentUser.tipo==='PROGRAMADOR')){
-        alert('Você não tem permissão para excluir demandas.');
-        return;
-      }
-      if(!confirm(`Excluir ${d.codigo}?`)) return;
-      setStatus('Excluindo ' + d.codigo + '...');
-      const { error } = await supabaseClient.from('demandas').delete().eq('id', d.id);
-      if(error){ alert('Erro: '+error.message); setStatus('Erro ao excluir'); return; }
-      setStatus('Excluída ' + d.codigo);
-      if(editingId === d.id) sairModoEdicao();
-      await carregarDemandas();
-    }
-
-    function getStatusClass(s){
-      const st = (s||'').toUpperCase();
-      if(st==='ABERTA') return 'status-aberta';
-      if(st==='EM ANÁLISE' || st==='EM ANALISE' || st==='NA PROGRAMAÇÃO' || st==='NA PROGRAMACAO') return 'status-analise';
-      if(st==='CONCLUÍDA' || st==='CONCLUIDA') return 'status-concluida';
-      return '';
-    }
-    function getPrioClass(p){
-      const pp = (p||'').toUpperCase();
-      if(pp==='BAIXA') return 'prio-baixa';
-      if(pp==='MÉDIA' || pp==='MEDIA') return 'prio-media';
-      if(pp==='ALTA') return 'prio-alta';
-      if(pp==='URGENTE') return 'prio-urgente';
-      return '';
-    }
-
-    async function carregarDemandas(){
-      setStatus('Carregando demandas...');
-      const { data, error } = await supabaseClient
-        .from('demandas')
-        .select('*')
-        .order('created_at',{ascending:false});
-      if(error){ alert('Erro: '+error.message); setStatus('Erro ao carregar'); return; }
-      demandasCache = data || [];
-
-      const { data: andData, error: andErr } = await supabaseClient
-        .from('demandas_andamentos')
-        .select('demanda_id, descricao, autor, created_at, data_hora_local')
-        .order('created_at', { ascending:false });
-      andamentosLista = andData || [];
-      andamentosPorDemanda = {};
-      if(!andErr && andData){
-        andData.forEach(a=>{
-          if(!andamentosPorDemanda[a.demanda_id]) andamentosPorDemanda[a.demanda_id] = [];
-          if(a.descricao) andamentosPorDemanda[a.demanda_id].push(a.descricao.toLowerCase());
-        });
-      }
-
-      preencherFiltros();
-      atualizarTodasSugestoes();
-      renderizarDemandas();
-      atualizarQuadroAvisos();
-      setStatus('Pronto');
-    }
-
-    function preencherSelectComLista(selectEl, lista, labelTodos){
-      const prev = selectEl.value;
-      selectEl.innerHTML = `<option value="">${labelTodos}</option>`;
-      lista.forEach(v=>{
-        const o = document.createElement('option');
-        o.value = v;
-        o.textContent = v;
-        selectEl.appendChild(o);
-      });
-      if(lista.includes(prev)) selectEl.value = prev;
-    }
-
-    function preencherFiltros(){
-      const municipios = Array.from(new Set(demandasCache.map(d=>d.cliente).filter(Boolean))).sort();
-      preencherSelectComLista(filtroCliente, municipios, 'Todos');
-
-      const tipos = Array.from(new Set(demandasCache.map(d=>d.tipo_entidade).filter(Boolean))).sort();
-      preencherSelectComLista(filtroTipoEntidade, tipos, 'Todos');
-
-      const estados = Array.from(new Set(demandasCache.map(d=>d.estado).filter(Boolean))).sort();
-      preencherSelectComLista(filtroEstado, estados, 'Todos');
-
-      const atendentes = Array.from(new Set(demandasCache.map(d=>d.atendente).filter(Boolean))).sort();
-      preencherSelectComLista(filtroAtendente, atendentes, 'Todos');
-
-      const setProg = new Set();
-      demandasCache.forEach(d => (d.tags_programadores || []).forEach(p => setProg.add(p)));
-      const listaProg = Array.from(setProg).sort((a,b)=>a.localeCompare(b,'pt-BR'));
-      preencherSelectComLista(filtroProgramador, listaProg, 'Todos');
-
-      const setForma = new Set();
-      demandasCache.forEach(d => (d.forma_atendimento || []).forEach(f => setForma.add(f)));
-      const listaForma = Array.from(setForma).sort((a,b)=>a.localeCompare(b,'pt-BR'));
-      preencherSelectComLista(filtroForma, listaForma, 'Todas');
-    }
-
-    function renderSugestoesTag(containerId, lista, tagApi){
-      const box = document.getElementById(containerId);
-      if(!box) return;
-      box.innerHTML = '';
-      const atuais = new Set((tagApi.getTags() || []).map(String));
-      const filtradas = lista.filter(v => v && !atuais.has(v));
-      if(filtradas.length === 0){
-        box.textContent = 'Sem sugestões ainda';
-        return;
-      }
-      filtradas.forEach(v=>{
-        const chip = document.createElement('span');
-        chip.className = 'suggestion-chip';
-        chip.textContent = v;
-        chip.addEventListener('click', ()=>{
-          tagApi.addTag(v);
-        });
-        box.appendChild(chip);
-      });
-    }
-
-    function renderSugestoesCampo(containerId, lista, inputEl){
-      const box = document.getElementById(containerId);
-      if(!box || !inputEl) return;
-      box.innerHTML = '';
-      const filtradas = lista.filter(v => v);
-      if(filtradas.length === 0){
-        box.textContent = 'Sem sugestões ainda';
-        return;
-      }
-      filtradas.forEach(v=>{
-        const chip = document.createElement('span');
-        chip.className = 'suggestion-chip';
-        chip.textContent = v;
-        chip.addEventListener('click', ()=>{
-          inputEl.value = v;
-        });
-        box.appendChild(chip);
-      });
-    }
-
-    function atualizarTodasSugestoes(){
-      const setProg = new Set();
-      demandasCache.forEach(d => (d.tags_programadores || []).forEach(p => setProg.add(p)));
-      const listaProg = Array.from(setProg).sort((a,b)=>a.localeCompare(b,'pt-BR'));
-
-      const setAss = new Set();
-      demandasCache.forEach(d => (d.tags_assunto || []).forEach(a => setAss.add(a)));
-      const listaAss = Array.from(setAss).sort((a,b)=>a.localeCompare(b,'pt-BR'));
-
-      const setForma = new Set();
-      demandasCache.forEach(d => (d.forma_atendimento || []).forEach(f => setForma.add(f)));
-      const listaForma = Array.from(setForma).sort((a,b)=>a.localeCompare(b,'pt-BR'));
-
-      const setContato = new Set();
-      demandasCache.forEach(d => { if(d.contato_cliente) setContato.add(d.contato_cliente); });
-      const listaContato = Array.from(setContato).sort((a,b)=>a.localeCompare(b,'pt-BR'));
-
-      const setAtendente = new Set();
-      demandasCache.forEach(d => { if(d.atendente) setAtendente.add(d.atendente); });
-      const listaAtendente = Array.from(setAtendente).sort((a,b)=>a.localeCompare(b,'pt-BR'));
-
-      const setTipoEnt = new Set();
-      demandasCache.forEach(d => { if(d.tipo_entidade) setTipoEnt.add(d.tipo_entidade); });
-      const listaTipoEnt = Array.from(setTipoEnt).sort((a,b)=>a.localeCompare(b,'pt-BR'));
-
-      renderSugestoesTag('sugestoes-programadores', listaProg, tagProgramadores);
-      renderSugestoesTag('sugestoes-assunto', listaAss, tagAssunto);
-      renderSugestoesTag('sugestoes-forma', listaForma, tagForma);
-
-      renderSugestoesCampo('sugestoes-contato', listaContato, document.getElementById('contato-cliente'));
-      renderSugestoesCampo('sugestoes-atendente', listaAtendente, document.getElementById('atendente'));
-      renderSugestoesCampo('sugestoes-tipo-entidade', listaTipoEnt, document.getElementById('tipo-entidade'));
-    }
-
-    const overlay = document.getElementById('detalhes-overlay');
-    const btnFecharDetalhes = document.getElementById('btn-fechar-detalhes');
-    const detalhesTitulo = document.getElementById('detalhes-titulo');
-    const detalhesCabecalho = document.getElementById('detalhes-cabecalho');
-    const detalhesMunicipio = document.getElementById('detalhes-municipio');
-    const detalhesTipoEntidade = document.getElementById('detalhes-tipo-entidade');
-    const detalhesContato = document.getElementById('detalhes-contato');
-    const detalhesEstado = document.getElementById('detalhes-estado');
-    const detalhesAtendenteDet = document.getElementById('detalhes-atendente');
-    const detalhesTrello = document.getElementById('detalhes-trello');
-    const detalhesEmail = document.getElementById('detalhes-email');
-    const detalhesEncaminhar = document.getElementById('detalhes-encaminhar');
-    const detalhesDescricao = document.getElementById('detalhes-descricao');
-    const detalhesForma = document.getElementById('detalhes-forma');
-    const detalhesProgramadores = document.getElementById('detalhes-programadores');
-    const detalhesTagsAssunto = document.getElementById('detalhes-tags-assunto');
-    const detalhesDataPc = document.getElementById('detalhes-data-pc');
-    const detalhesDataServidor = document.getElementById('detalhes-data-servidor');
-    const listaAndamentos = document.getElementById('lista-andamentos');
-    const campoNovoAndamento = document.getElementById('novo-andamento-texto');
-    const btnSalvarAndamento = document.getElementById('btn-salvar-andamento');
-
-    let demandaAtualDetalhes = null;
-
-    btnFecharDetalhes.addEventListener('click', ()=> fecharDetalhes());
-    overlay.addEventListener('click', (e)=>{ if(e.target === overlay) fecharDetalhes(); });
-
-    function makeLinkSpan(url){
-      if(!url) return document.createTextNode('');
-      const a = document.createElement('a');
-      a.href = url;
-      a.target = '_blank';
-      a.rel = 'noopener';
-      a.textContent = 'abrir';
-      return a;
-    }
-
-    function abrirDetalhes(d){
-      demandaAtualDetalhes = d;
-      detalhesTitulo.textContent = `Detalhes da Demanda ${d.codigo}`;
-      detalhesCabecalho.innerHTML = `
-        <div style="margin-bottom:4px">
-          <span class="codigo">${d.codigo}</span>
-        </div>
-        <div><strong>Assunto:</strong> ${d.assunto || ''}</div>
-        <div style="margin-top:4px">
-          <span class="chip ${getPrioClass(d.prioridade)}">Prioridade: ${d.prioridade || 'MÉDIA'}</span>
-          <span class="chip ${getStatusClass(d.status)}">Status: ${d.status || 'ABERTA'}</span>
-        </div>
-      `;
-
-      detalhesMunicipio.textContent = d.cliente || '';
-      detalhesTipoEntidade.textContent = d.tipo_entidade || '';
-      detalhesContato.textContent = d.contato_cliente || '';
-      detalhesEstado.textContent = d.estado || '';
-      detalhesAtendenteDet.textContent = d.atendente || '';
-
-      detalhesTrello.innerHTML = '';
-      if(d.link_trello){
-        detalhesTrello.appendChild(makeLinkSpan(d.link_trello));
-      }
-      detalhesEmail.innerHTML = '';
-      if(d.link_email){
-        detalhesEmail.appendChild(document.createTextNode(d.link_email));
-      }
-
-      detalhesEncaminhar.textContent = d.encaminhar_para || '(Nenhum)';
-      detalhesDescricao.textContent = d.descricao || '';
-
-      detalhesForma.innerHTML = '';
-      (d.forma_atendimento || []).forEach(t => {
-        const span = document.createElement('span'); span.className='chip'; span.textContent=t;
-        detalhesForma.appendChild(span);
-      });
-      detalhesProgramadores.innerHTML = '';
-      (d.tags_programadores || []).forEach(t => {
-        const span = document.createElement('span'); span.className='chip'; span.textContent=t;
-        detalhesProgramadores.appendChild(span);
-      });
-      detalhesTagsAssunto.innerHTML = '';
-      (d.tags_assunto || []).forEach(t => {
-        const span = document.createElement('span'); span.className='chip'; span.textContent=t;
-        detalhesTagsAssunto.appendChild(span);
-      });
-
-      detalhesDataPc.textContent = d.data_hora_local || '';
-      detalhesDataServidor.textContent = d.created_at ? new Date(d.created_at).toLocaleString('pt-BR') : '';
-
-      campoNovoAndamento.value = '';
-      listaAndamentos.innerHTML = '<div class="muted">Carregando andamentos...</div>';
-      overlay.style.display = 'flex';
-
-      carregarAndamentos(d.id);
-    }
-
-    function fecharDetalhes(){
-      overlay.style.display = 'none';
-      demandaAtualDetalhes = null;
-      listaAndamentos.innerHTML = '';
-      campoNovoAndamento.value = '';
-    }
-
-    async function carregarAndamentos(demandaId){
-      const { data, error } = await supabaseClient
-        .from('demandas_andamentos')
-        .select('*')
-        .eq('demanda_id', demandaId)
-        .order('created_at', { ascending:true });
-      if(error){
-        console.error(error);
-        listaAndamentos.innerHTML = '<div class="muted">Erro ao carregar andamentos.</div>';
-        return;
-      }
-      if(!data || data.length === 0){
-        listaAndamentos.innerHTML = '<div class="muted">Nenhum andamento cadastrado ainda.</div>';
-        return;
-      }
-      listaAndamentos.innerHTML = '';
-      data.forEach(a=>{
-        const div = document.createElement('div');
-        div.className = 'andamento-item';
-        const dataTexto = a.data_hora_local || (a.created_at ? new Date(a.created_at).toLocaleString('pt-BR') : '');
-        const autor = a.autor || 'desconhecido';
-        const descricaoHtml = (a.descricao || '').replace(/\n/g,'<br>');
-        div.innerHTML = `
-          <div class="andamento-data">${dataTexto} · ${autor}</div>
-          <div>${descricaoHtml}</div>
-        `;
-        listaAndamentos.appendChild(div);
-      });
-    }
-
-    btnSalvarAndamento.addEventListener('click', async ()=>{
-      if(!demandaAtualDetalhes) return;
-      if(!currentUser){
-        alert('É necessário estar logado para incluir andamento.');
-        return;
-      }
-      const texto = campoNovoAndamento.value.trim();
-      if(!texto){
-        alert('Digite o andamento.');
-        return;
-      }
-      btnSalvarAndamento.disabled = true;
-      btnSalvarAndamento.textContent = 'Salvando...';
-      try{
-        const dataHoraLocal = new Date().toLocaleString('pt-BR');
-        const { error } = await supabaseClient.from('demandas_andamentos').insert([{
-          demanda_id: demandaAtualDetalhes.id,
-          descricao: texto,
-          autor: currentUser.nome,
-          data_hora_local: dataHoraLocal
-        }]);
-        if(error) throw error;
-        campoNovoAndamento.value = '';
-        await carregarAndamentos(demandaAtualDetalhes.id);
-
-        if(!andamentosPorDemanda[demandaAtualDetalhes.id]) andamentosPorDemanda[demandaAtualDetalhes.id] = [];
-        andamentosPorDemanda[demandaAtualDetalhes.id].push(texto.toLowerCase());
-        andamentosLista.unshift({
-          demanda_id: demandaAtualDetalhes.id,
-          descricao: texto,
-          autor: currentUser.nome,
-          data_hora_local: dataHoraLocal,
-          created_at: new Date().toISOString()
-        });
-        atualizarQuadroAvisos();
-      }catch(err){
-        console.error(err);
-        alert('Erro ao salvar andamento: ' + (err.message || JSON.stringify(err)));
-      }finally{
-        btnSalvarAndamento.disabled = false;
-        btnSalvarAndamento.textContent = '➕ Adicionar andamento';
-      }
-    });
-
-    /* --- MODAL DEVOLVER --- */
-
-    const devolverOverlay = document.getElementById('devolver-overlay');
-    const devolverInfo = document.getElementById('devolver-info');
-    const devolverSelect = document.getElementById('devolver-select');
-    const btnFecharDevolver = document.getElementById('btn-fechar-devolver');
-    const btnConfirmarDevolver = document.getElementById('btn-confirmar-devolver');
-    let demandaParaDevolver = null;
-
-    btnFecharDevolver.addEventListener('click', ()=> fecharModalDevolver());
-    devolverOverlay.addEventListener('click', (e)=>{ if(e.target === devolverOverlay) fecharModalDevolver(); });
-
-    function abrirModalDevolver(d){
-      if(!currentUser) return;
-      demandaParaDevolver = d;
-      devolverInfo.textContent = `Demanda ${d.codigo} (encaminhada para ${d.encaminhar_para || 'ninguém'})`;
-
-      devolverSelect.innerHTML = '';
-      usuariosCache
-        .filter(u => (u.status || 'PENDENTE') === 'ATIVO')
-        .forEach(u=>{
-          const opt = document.createElement('option');
-          opt.value = u.nome;
-          opt.textContent = `${u.nome} (${u.tipo})`;
-          devolverSelect.appendChild(opt);
-        });
-
-      if(d.encaminhar_de){
-        devolverSelect.value = d.encaminhar_de;
-      }
-
-      devolverOverlay.style.display = 'flex';
-    }
-
-    function fecharModalDevolver(){
-      devolverOverlay.style.display = 'none';
-      demandaParaDevolver = null;
-    }
-
-    btnConfirmarDevolver.addEventListener('click', async ()=>{
-      if(!demandaParaDevolver || !currentUser) return;
-      const destino = devolverSelect.value;
-      if(!destino){
-        alert('Selecione um usuário para devolver.');
-        return;
-      }
-
-      const existe = usuariosCache.some(u => u.nome === destino && (u.status || 'PENDENTE') === 'ATIVO');
-      if(!existe){
-        alert('Usuário não encontrado ou não está ATIVO.');
-        return;
-      }
-
-      try{
-        setStatus('Devolvendo demanda...');
-        btnConfirmarDevolver.disabled = true;
-        const d = demandaParaDevolver;
-
-        const { error } = await supabaseClient
-          .from('demandas')
-          .update({
-            encaminhar_para: destino,
-            encaminhar_de: currentUser.nome
-          })
-          .eq('id', d.id);
-        if(error) throw error;
-
-        const dataHoraLocal = new Date().toLocaleString('pt-BR');
-        await supabaseClient.from('demandas_andamentos').insert([{
-          demanda_id: d.id,
-          descricao: `Demanda devolvida para ${destino} por ${currentUser.nome}.`,
-          autor: currentUser.nome,
-          data_hora_local: dataHoraLocal
-        }]);
-
-        setStatus('Demanda devolvida.');
-        fecharModalDevolver();
-        await carregarDemandas();
-      }catch(err){
-        console.error(err);
-        alert('Erro ao devolver demanda: ' + (err.message || JSON.stringify(err)));
-        setStatus('Erro ao devolver');
-      }finally{
-        btnConfirmarDevolver.disabled = false;
-      }
-    });
-
-    /* --- LISTAGEM DE DEMANDAS --- */
-
-    function criarLinhaDemanda(d, isEncaminhada){
-      const tr = document.createElement('tr');
-
-      tr.addEventListener('click', (ev)=>{
-        if(ev.target.closest('.acoes-cell')) return;
-        abrirDetalhes(d);
-      });
-
-      const tdCod = document.createElement('td');
-      tdCod.innerHTML = `<span class="codigo">${d.codigo}</span>`;
-      tr.appendChild(tdCod);
-
-      if(isEncaminhada){
-        const tdEnc = document.createElement('td');
-        tdEnc.textContent = d.encaminhar_para || '';
-        tr.appendChild(tdEnc);
-
-        const tdCli = document.createElement('td');
-        tdCli.innerHTML = `<strong>${d.cliente || ''}</strong><div class="muted">${d.assunto||''}</div>`;
-        tr.appendChild(tdCli);
-      }else{
-        const tdCli = document.createElement('td');
-        tdCli.innerHTML = `<strong>${d.cliente || ''}</strong><div class="muted">${d.tipo_entidade || ''} · ${d.assunto||''}</div>`;
-        tr.appendChild(tdCli);
-      }
-
-      const tdProg = document.createElement('td');
-      const wrapProg = document.createElement('div'); wrapProg.className='tags-list';
-      (d.tags_programadores||[]).forEach(t=>{ const s=document.createElement('span'); s.textContent=t; wrapProg.appendChild(s); });
-      tdProg.appendChild(wrapProg);
-      tr.appendChild(tdProg);
-
-      const tdPrio = document.createElement('td');
-      const spPrio = document.createElement('span');
-      spPrio.className = 'prio-pill ' + getPrioClass(d.prioridade);
-      spPrio.textContent = d.prioridade || 'MÉDIA';
-      tdPrio.appendChild(spPrio);
-      tr.appendChild(tdPrio);
-
-      const tdStatus = document.createElement('td');
-      const spSt = document.createElement('span');
-      spSt.className = 'status-pill ' + getStatusClass(d.status);
-      spSt.textContent = d.status || 'ABERTA';
-      tdStatus.appendChild(spSt);
-      tr.appendChild(tdStatus);
-
-      const tdA = document.createElement('td');
-      const wrapA = document.createElement('div'); wrapA.className='acoes-cell';
-
-      const btnDet = document.createElement('button');
-      btnDet.className='btn btn-secondary btn-sm';
-      btnDet.type='button';
-      btnDet.textContent='Detalhes';
-      btnDet.addEventListener('click',(ev)=>{ ev.stopPropagation(); abrirDetalhes(d); });
-      wrapA.appendChild(btnDet);
-
-      if(!currentUser || currentUser.tipo !== 'PROGRAMADOR'){
-        const btnE = document.createElement('button');
-        btnE.className='btn btn-secondary btn-sm';
-        btnE.type='button';
-        btnE.textContent='Editar';
-        btnE.addEventListener('click',(ev)=>{ ev.stopPropagation(); entrarModoEdicao(d); });
-
-        const btnX = document.createElement('button');
-        btnX.className='btn btn-danger btn-sm';
-        btnX.type='button';
-        btnX.textContent='Excluir';
-        btnX.addEventListener('click',(ev)=>{ ev.stopPropagation(); excluirDemanda(d); });
-
-        wrapA.appendChild(btnE);
-        wrapA.appendChild(btnX);
-      }
-
-      if(currentUser && (currentUser.tipo === 'PROGRAMADOR' || currentUser.tipo === 'GESTOR') &&
-         d.encaminhar_para === currentUser.nome){
-        const btnDev = document.createElement('button');
-        btnDev.className = 'btn btn-secondary btn-sm';
-        btnDev.type = 'button';
-        btnDev.textContent = 'Devolver';
-        btnDev.addEventListener('click', (ev)=>{
-          ev.stopPropagation();
-          abrirModalDevolver(d);
-        });
-        wrapA.appendChild(btnDev);
-      }
-
-      tdA.appendChild(wrapA);
-      tr.appendChild(tdA);
-
-      return tr;
-    }
-
-    function renderizarDemandas(){
-      const clienteF = filtroCliente.value;
-      const tipoEntF = filtroTipoEntidade.value;
-      const estadoF = filtroEstado.value;
-      const atendenteF = filtroAtendente.value;
-      const progF = filtroProgramador.value;
-      const formaF = filtroForma.value;
-      const prioF = filtroPrio.value;
-      const statusF = filtroStatus.value;
-      const textoF = filtroTexto.value.trim().toLowerCase();
-
-      tabela.innerHTML = '';
-      tabelaEncaminhadas.innerHTML = '';
-
-      let filtradas = demandasCache;
-
-      if(currentUser && currentUser.tipo === 'PROGRAMADOR'){
-        filtradas = filtradas.filter(d =>
-          (d.encaminhar_para === currentUser.nome) ||
-          (d.tags_programadores || []).includes(currentUser.nome)
-        );
-      }
-
-      if(clienteF) filtradas = filtradas.filter(d=>d.cliente===clienteF);
-      if(tipoEntF) filtradas = filtradas.filter(d=>d.tipo_entidade===tipoEntF);
-      if(estadoF) filtradas = filtradas.filter(d=>d.estado===estadoF);
-      if(atendenteF) filtradas = filtradas.filter(d=>d.atendente===atendenteF);
-      if(progF) filtradas = filtradas.filter(d=>(d.tags_programadores||[]).includes(progF));
-      if(formaF) filtradas = filtradas.filter(d=>(d.forma_atendimento||[]).includes(formaF));
-      if(prioF) filtradas = filtradas.filter(d=> (d.prioridade||'').toUpperCase() === prioF.toUpperCase());
-      if(statusF) filtradas = filtradas.filter(d=> (d.status||'').toUpperCase() === statusF.toUpperCase());
-
-      if(ocultarConcluidas && !statusF){
-        filtradas = filtradas.filter(d=>{
-          const st = (d.status || '').toUpperCase();
-          return !(st==='CONCLUÍDA' || st==='CONCLUIDA');
-        });
-      }
-
-      if(textoF){
-        filtradas = filtradas.filter(d=>{
-          const camposPrincipais = [
-            d.cliente || '',
-            d.tipo_entidade || '',
-            d.assunto || '',
-            d.descricao || '',
-            d.contato_cliente || '',
-            d.atendente || '',
-            d.link_trello || '',
-            d.link_email || ''
-          ].join(' ').toLowerCase();
-
-          const tagsProgStr = (d.tags_programadores || []).join(' ').toLowerCase();
-          const tagsAssStr = (d.tags_assunto || []).join(' ').toLowerCase();
-          const formaStr = (d.forma_atendimento || []).join(' ').toLowerCase();
-
-          let baseLower = camposPrincipais + ' ' + tagsProgStr + ' ' + tagsAssStr + ' ' + formaStr;
-          if(baseLower.includes(textoF)) return true;
-
-          const ands = andamentosPorDemanda[d.id] || [];
-          return ands.some(desc => desc.includes(textoF));
-        });
-      }
-
-      let listaAbertas = [];
-      let listaEnc = [];
-
-      if(currentUser && currentUser.tipo === 'PROGRAMADOR'){
-        listaEnc = filtradas;
-        listaAbertas = [];
-      }else{
-        listaEnc = filtradas.filter(d => d.encaminhar_para);
-        listaAbertas = filtradas.filter(d => !d.encaminhar_para);
-      }
-
-      if(currentUser && currentUser.tipo === 'PROGRAMADOR'){
-        resumo.textContent = `Mostrando ${listaEnc.length} demandas recebidas de ${demandasCache.length} no total.`;
-      }else{
-        resumo.textContent = `Mostrando ${listaAbertas.length} não encaminhadas e ${listaEnc.length} encaminhadas de ${demandasCache.length} no total.`;
-      }
-
-      listaAbertas.forEach(d=>{
-        tabela.appendChild(criarLinhaDemanda(d,false));
-      });
-
-      listaEnc.forEach(d=>{
-        tabelaEncaminhadas.appendChild(criarLinhaDemanda(d,true));
-      });
-
-      resumoEncaminhadas.textContent = listaEnc.length
-        ? `Total de demandas encaminhadas exibidas: ${listaEnc.length}`
-        : 'Nenhuma demanda encaminhada dentro dos filtros atuais.';
-    }
-
-    filtroCliente.addEventListener('change', renderizarDemandas);
-    filtroTipoEntidade.addEventListener('change', renderizarDemandas);
-    filtroEstado.addEventListener('change', renderizarDemandas);
-    filtroAtendente.addEventListener('change', renderizarDemandas);
-    filtroProgramador.addEventListener('change', renderizarDemandas);
-    filtroForma.addEventListener('change', renderizarDemandas);
-    filtroPrio.addEventListener('change', renderizarDemandas);
-    filtroStatus.addEventListener('change', renderizarDemandas);
-    filtroTexto.addEventListener('input', renderizarDemandas);
-    btnRecarregar.addEventListener('click', ()=>carregarDemandas());
-
-    btnToggleConcluidas.addEventListener('click', ()=>{
-      ocultarConcluidas = !ocultarConcluidas;
-      btnToggleConcluidas.textContent = ocultarConcluidas ? 'Mostrar concluídas' : 'Ocultar concluídas';
-      renderizarDemandas();
-    });
-
-    function contarPorCampo(campo, listaBase){
-      const mapa = {};
-      (listaBase || demandasCache).forEach(d=>{
-        const v = d[campo];
-        if(v){ mapa[v] = (mapa[v]||0)+1; }
-      });
-      return mapa;
-    }
-
-    function contarPorTags(campo, listaBase){
-      const mapa = {};
-      (listaBase || demandasCache).forEach(d=>{
-        (d[campo] || []).forEach(v=>{
-          if(v){ mapa[v] = (mapa[v]||0)+1; }
-        });
-      });
-      return mapa;
-    }
-
-    function criarSecaoGrafico(titulo, mapa){
-      const chaves = Object.keys(mapa);
-      if(chaves.length === 0) return null;
-      chaves.sort((a,b)=> mapa[b] - mapa[a] || a.localeCompare(b,'pt-BR'));
-      const total = chaves.reduce((acc,k)=>acc+mapa[k],0);
-      const max = mapa[chaves[0]];
-
-      const sec = document.createElement('div');
-      sec.className = 'chart-section';
-      const h3 = document.createElement('h3');
-      h3.textContent = `${titulo} (total ${total})`;
-      sec.appendChild(h3);
-
-      chaves.forEach(k=>{
-        const row = document.createElement('div');
-        row.className = 'chart-row';
-
-        const label = document.createElement('span');
-        label.className = 'chart-label';
-        label.title = k;
-        label.textContent = `${k} (${mapa[k]})`;
-
-        const bar = document.createElement('div');
-        bar.className = 'chart-bar';
-        const fill = document.createElement('div');
-        fill.className = 'chart-bar-fill';
-        const pct = max > 0 ? (mapa[k]/max*100) : 0;
-        fill.style.width = pct.toFixed(0) + '%';
-
-        bar.appendChild(fill);
-        row.appendChild(label);
-        row.appendChild(bar);
-        sec.appendChild(row);
-      });
-
-      return sec;
-    }
-
-    function renderGraficos(){
-      graficosConteudo.innerHTML = '';
-      let base = demandasCache;
-      if(currentUser && currentUser.tipo === 'PROGRAMADOR'){
-        base = base.filter(d =>
-          (d.encaminhar_para === currentUser.nome) ||
-          (d.tags_programadores || []).includes(currentUser.nome)
-        );
-      }
-      if(base.length === 0){
-        graficosConteudo.innerHTML = '<div class="muted">Nenhuma demanda para gerar gráficos.</div>';
-        return;
-      }
-
-      const secoes = [
-        criarSecaoGrafico('Demandas por Município', contarPorCampo('cliente', base)),
-        criarSecaoGrafico('Demandas por Tipo de Entidade', contarPorCampo('tipo_entidade', base)),
-        criarSecaoGrafico('Demandas por Estado', contarPorCampo('estado', base)),
-        criarSecaoGrafico('Demandas por Atendente', contarPorCampo('atendente', base)),
-        criarSecaoGrafico('Demandas por Status', contarPorCampo('status', base)),
-        criarSecaoGrafico('Demandas por Prioridade', contarPorCampo('prioridade', base)),
-        criarSecaoGrafico('Demandas por Programador (tags)', contarPorTags('tags_programadores', base)),
-        criarSecaoGrafico('Demandas por Forma de Atendimento', contarPorTags('forma_atendimento', base)),
-      ];
-
-      let adicionou = false;
-      secoes.forEach(sec=>{
-        if(sec){
-          graficosConteudo.appendChild(sec);
-          adicionou = true;
-        }
-      });
-
-      if(currentUser && currentUser.tipo === 'GESTOR'){
-        const secGestor = document.createElement('div');
-        secGestor.className = 'chart-section';
-        const total = base.length;
-        const abertas = base.filter(d => (d.status||'').toUpperCase().startsWith('ABERT') || (d.status||'').toUpperCase().includes('PROGRAMA')).length;
-        const concluidas = base.filter(d => (d.status||'').toUpperCase().includes('CONCLUI')).length;
-
-        let html = `<h3>Resumo de Gestão</h3>`;
-        html += `<p style="font-size:12px;">Total de demandas: <strong>${total}</strong> · Abertas/em andamento: <strong>${abertas}</strong> · Concluídas: <strong>${concluidas}</strong></p>`;
-
-        const programadores = usuariosCache.filter(u => u.tipo === 'PROGRAMADOR' && (u.status || 'PENDENTE') === 'ATIVO');
-        if(programadores.length){
-          const hoje = Date.now();
-          const resumoProg = programadores.map(p=>{
-            const demandasProg = base.filter(d =>
-              (d.encaminhar_para === p.nome) ||
-              (d.tags_programadores || []).includes(p.nome)
-            );
-            const abertasProg = demandasProg.filter(d => !( (d.status||'').toUpperCase().includes('CONCLUI') ));
-            let mediaDias = 0;
-            if(abertasProg.length){
-              const soma = abertasProg.reduce((acc,d)=>{
-                const t = d.created_at ? new Date(d.created_at).getTime() : hoje;
-                const diff = (hoje - t)/(1000*60*60*24);
-                return acc+diff;
-              },0);
-              mediaDias = soma/abertasProg.length;
-            }
-            return { nome:p.nome, qtd:abertasProg.length, mediaDias };
-          });
-          resumoProg.sort((a,b)=> b.qtd - a.qtd || b.mediaDias - a.mediaDias);
-          if(resumoProg.length){
-            html += `<p style="font-size:12px;margin-top:6px;"><strong>Programador com mais demandas em aberto:</strong> ${resumoProg[0].nome} (${resumoProg[0].qtd} demandas, média ${resumoProg[0].mediaDias.toFixed(1)} dias)</p>`;
-          }
-        }
-
-        secGestor.innerHTML = html;
-        graficosConteudo.appendChild(secGestor);
-        adicionou = true;
-      }
-
-      if(!adicionou){
-        graficosConteudo.innerHTML = '<div class="muted">Ainda não há dados suficientes para gerar gráficos.</div>';
-      }
-    }
-
-    btnGraficos.addEventListener('click', ()=>{
-      renderGraficos();
-      graficosOverlay.style.display = 'flex';
-    });
-
-    btnFecharGraficos.addEventListener('click', ()=> graficosOverlay.style.display = 'none');
-    graficosOverlay.addEventListener('click', (e)=>{
-      if(e.target === graficosOverlay) graficosOverlay.style.display = 'none';
-    });
-
-    /* --- GESTÃO DE USUÁRIOS (GESTOR) --- */
-
-    function renderizarUsuariosGestor(){
-      if(!currentUser || currentUser.tipo !== 'GESTOR'){
-        cardUsuariosPendentes.style.display = 'none';
-        return;
-      }
-      cardUsuariosPendentes.style.display = 'block';
-      tabelaUsuariosPendentes.innerHTML = '';
-      tabelaUsuariosAtivos.innerHTML = '';
-
-      const pendentes = usuariosCache.filter(u => (u.status || 'PENDENTE') === 'PENDENTE');
-      const ativos = usuariosCache.filter(u =>
-        (u.status || 'PENDENTE') === 'ATIVO' || u.status === 'INATIVO'
-      );
-
-      // Pendentes
-      if(pendentes.length === 0){
-        tabelaUsuariosPendentes.innerHTML = `
-          <tr><td colspan="5" class="muted">Nenhum usuário pendente de aprovação.</td></tr>
-        `;
-      }else{
-        pendentes.forEach(u=>{
-          const tr = document.createElement('tr');
-
-          const tdNome = document.createElement('td');
-          tdNome.textContent = u.nome;
-          tr.appendChild(tdNome);
-
-          const tdTipo = document.createElement('td');
-          tdTipo.textContent = u.tipo || '';
-          tr.appendChild(tdTipo);
-
-          const tdUnidade = document.createElement('td');
-          tdUnidade.textContent = u.unidade || '';
-          tr.appendChild(tdUnidade);
-
-          const tdData = document.createElement('td');
-          tdData.textContent = u.created_at ? new Date(u.created_at).toLocaleString('pt-BR') : '-';
-          tr.appendChild(tdData);
-
-          const tdAcoes = document.createElement('td');
-          const wrap = document.createElement('div');
-          wrap.className = 'acoes-cell';
-
-          const btnAceitar = document.createElement('button');
-          btnAceitar.className = 'btn btn-primary btn-sm';
-          btnAceitar.type = 'button';
-          btnAceitar.textContent = 'Aceitar';
-          btnAceitar.addEventListener('click', ()=> aprovarUsuario(u));
-
-          const btnRejeitar = document.createElement('button');
-          btnRejeitar.className = 'btn btn-danger btn-sm';
-          btnRejeitar.type = 'button';
-          btnRejeitar.textContent = 'Rejeitar';
-          btnRejeitar.addEventListener('click', ()=> rejeitarUsuario(u));
-
-          wrap.appendChild(btnAceitar);
-          wrap.appendChild(btnRejeitar);
-          tdAcoes.appendChild(wrap);
-          tr.appendChild(tdAcoes);
-
-          tabelaUsuariosPendentes.appendChild(tr);
-        });
-      }
-
-      // Ativos / Inativos
-      if(ativos.length === 0){
-        tabelaUsuariosAtivos.innerHTML = `
-          <tr><td colspan="6" class="muted">Nenhum usuário ativo ou inativo.</td></tr>
-        `;
-      }else{
-        ativos.forEach(u=>{
-          const tr = document.createElement('tr');
-
-          const tdNome = document.createElement('td');
-          tdNome.textContent = u.nome;
-          tr.appendChild(tdNome);
-
-          const tdTipo = document.createElement('td');
-          tdTipo.textContent = u.tipo || '';
-          tr.appendChild(tdTipo);
-
-          const tdUnidade = document.createElement('td');
-          tdUnidade.textContent = u.unidade || '';
-          tr.appendChild(tdUnidade);
-
-          const tdStatus = document.createElement('td');
-          tdStatus.textContent = u.status || 'ATIVO';
-          tr.appendChild(tdStatus);
-
-          const tdData = document.createElement('td');
-          tdData.textContent = u.updated_at
-            ? new Date(u.updated_at).toLocaleString('pt-BR')
-            : (u.created_at ? new Date(u.created_at).toLocaleString('pt-BR') : '-');
-          tr.appendChild(tdData);
-
-          const tdAcoes = document.createElement('td');
-          const wrap = document.createElement('div');
-          wrap.className = 'acoes-cell';
-
-          const btnEditar = document.createElement('button');
-          btnEditar.className = 'btn btn-secondary btn-sm';
-          btnEditar.type = 'button';
-          btnEditar.textContent = 'Editar';
-          btnEditar.addEventListener('click', ()=> abrirModalEditarUsuario(u));
-
-          const btnStatus = document.createElement('button');
-          btnStatus.className = 'btn btn-danger btn-sm';
-          btnStatus.type = 'button';
-          if((u.status || 'ATIVO') === 'ATIVO'){
-            btnStatus.textContent = 'Inativar';
-            btnStatus.addEventListener('click', ()=> inativarUsuario(u));
-          }else{
-            btnStatus.textContent = 'Reativar';
-            btnStatus.addEventListener('click', ()=> reativarUsuario(u));
-          }
-
-          wrap.appendChild(btnEditar);
-          wrap.appendChild(btnStatus);
-          tdAcoes.appendChild(wrap);
-          tr.appendChild(tdAcoes);
-
-          tabelaUsuariosAtivos.appendChild(tr);
-        });
-      }
-    }
-
-    async function aprovarUsuario(u){
-      if(!currentUser || currentUser.tipo !== 'GESTOR'){
-        alert('Apenas gestor pode aprovar usuários.');
-        return;
-      }
-      try{
-        setStatus('Aprovando usuário ' + u.nome + '...');
-        const { error } = await supabaseClient
-          .from('usuarios')
-          .update({ status: 'ATIVO' })
-          .eq('id', u.id);
-        if(error) throw error;
-        setStatus('Usuário aprovado.');
-        await carregarUsuarios();
-      }catch(err){
-        console.error(err);
-        alert('Erro ao aprovar usuário: ' + (err.message || JSON.stringify(err)));
-        setStatus('Erro ao aprovar usuário');
-      }
-    }
-
-    async function rejeitarUsuario(u){
-      if(!currentUser || currentUser.tipo !== 'GESTOR'){
-        alert('Apenas gestor pode rejeitar usuários.');
-        return;
-      }
-      if(!confirm(`Rejeitar e excluir o cadastro de "${u.nome}"?`)) return;
-      try{
-        setStatus('Rejeitando usuário ' + u.nome + '...');
-        const { error } = await supabaseClient
-          .from('usuarios')
-          .delete()
-          .eq('id', u.id);
-        if(error) throw error;
-        setStatus('Usuário rejeitado e excluído.');
-        await carregarUsuarios();
-      }catch(err){
-        console.error(err);
-        alert('Erro ao rejeitar usuário: ' + (err.message || JSON.stringify(err)));
-        setStatus('Erro ao rejeitar usuário');
-      }
-    }
-
-    async function alterarStatusUsuario(u, novoStatus){
-      if(!currentUser || currentUser.tipo!=='GESTOR'){
-        alert('Apenas gestor pode alterar status de usuários.');
-        return;
-      }
-      try{
-        setStatus(`Alterando status de ${u.nome} para ${novoStatus}...`);
-        const { error } = await supabaseClient
-          .from('usuarios')
-          .update({ status: novoStatus })
-          .eq('id', u.id);
-        if(error) throw error;
-        setStatus('Status alterado.');
-        await carregarUsuarios();
-      }catch(err){
-        console.error(err);
-        alert('Erro ao alterar status: ' + (err.message || JSON.stringify(err)));
-        setStatus('Erro ao alterar status');
-      }
-    }
-
-    function inativarUsuario(u){
-      if(!confirm(`Inativar o usuário "${u.nome}"? Ele perderá o acesso ao sistema.`)) return;
-      alterarStatusUsuario(u,'INATIVO');
-    }
-
-    function reativarUsuario(u){
-      alterarStatusUsuario(u,'ATIVO');
-    }
-
-    /* --- MODAL EDITAR USUÁRIO --- */
-
-    const editarUsuarioOverlay = document.getElementById('editar-usuario-overlay');
-    const btnFecharEditarUsuario = document.getElementById('btn-fechar-editar-usuario');
-    const btnSalvarEditarUsuario = document.getElementById('btn-salvar-editar-usuario');
-    const editUsuarioNome = document.getElementById('edit-usuario-nome');
-    const editUsuarioSenha = document.getElementById('edit-usuario-senha');
-    const editUsuarioTipo = document.getElementById('edit-usuario-tipo');
-    const editUsuarioUnidade = document.getElementById('edit-usuario-unidade');
-    const editUsuarioStatus = document.getElementById('edit-usuario-status');
-    let usuarioEmEdicao = null;
-
-    function abrirModalEditarUsuario(u){
-      if(!currentUser || currentUser.tipo!=='GESTOR'){
-        alert('Apenas gestor pode editar usuários.');
-        return;
-      }
-      usuarioEmEdicao = u;
-      editUsuarioNome.value = u.nome || '';
-      editUsuarioSenha.value = '';
-      editUsuarioTipo.value = u.tipo || 'PROGRAMADOR';
-      editUsuarioUnidade.value = u.unidade || '';
-      editUsuarioStatus.textContent = `Status atual: ${u.status || 'ATIVO'}`;
-      editarUsuarioOverlay.style.display='flex';
-    }
-
-    function fecharModalEditarUsuario(){
-      editarUsuarioOverlay.style.display='none';
-      usuarioEmEdicao = null;
-      editUsuarioSenha.value = '';
-    }
-
-    btnFecharEditarUsuario.addEventListener('click', fecharModalEditarUsuario);
-    editarUsuarioOverlay.addEventListener('click', (e)=>{ if(e.target===editarUsuarioOverlay) fecharModalEditarUsuario(); });
-
-    btnSalvarEditarUsuario.addEventListener('click', async ()=>{
-      if(!usuarioEmEdicao || !currentUser || currentUser.tipo!=='GESTOR') return;
-      const novoNome = editUsuarioNome.value.trim();
-      const novaSenha = editUsuarioSenha.value.trim();
-      const novoTipo = editUsuarioTipo.value;
-      const novaUnidade = editUsuarioUnidade.value;
-
-      if(!novoNome || !novoTipo){
-        alert('Nome e tipo são obrigatórios.');
-        return;
-      }
-      if(!novaUnidade){
-        alert('Selecione a unidade.');
-        return;
-      }
-      if(novaSenha && !senhaValida(novaSenha)){
-        alert('Senha deve ter de 1 a 10 caracteres, apenas letras e números (sem acentos ou símbolos).');
-        return;
-      }
-
-      const updateData = {
-        nome: novoNome,
-        tipo: novoTipo,
-        unidade: novaUnidade
-      };
-      if(novaSenha){
-        updateData.senha = novaSenha;
-      }
-
-      try{
-        setStatus('Atualizando usuário ' + usuarioEmEdicao.nome + '...');
-        const { error } = await supabaseClient
-          .from('usuarios')
-          .update(updateData)
-          .eq('id', usuarioEmEdicao.id);
-        if(error) throw error;
-        setStatus('Usuário atualizado.');
-        fecharModalEditarUsuario();
-        await carregarUsuarios();
-      }catch(err){
-        console.error(err);
-        alert('Erro ao atualizar usuário: ' + (err.message || JSON.stringify(err)));
-        setStatus('Erro ao atualizar usuário');
-      }
-    });
-
-    function atualizarQuadroAvisos(){
-      if(!currentUser){
-        quadroAvisosEl.textContent = 'Faça login para ver avisos.';
-        return;
-      }
-      const tipo = currentUser.tipo;
-      let intro = '';
-      if(tipo === 'PROGRAMADOR'){
-        intro = 'Você está logado como Programador. Você verá apenas as demandas encaminhadas para você ou marcadas com seu nome nas tags de programador. Você pode incluir andamentos nessas demandas e usar o botão "Devolver" quando quiser encaminhar para outro usuário.';
-      }else if(tipo === 'ATENDENTE'){
-        intro = 'Você está logado como Atendente. Você pode cadastrar, editar e excluir demandas, além de encaminhá-las para outros usuários.';
-      }else if(tipo === 'GESTOR'){
-        intro = 'Você está logado como Gestor. Você acompanha o fluxo de criação, encaminhamentos, aprova novos usuários e pode gerenciar todas as demandas (incluindo devolver encaminhamentos).';
-      }
-
-      const mapaDemandas = {};
-      demandasCache.forEach(d => { mapaDemandas[d.id] = d; });
-
-      let andRelevantes = [];
-      if(tipo === 'PROGRAMADOR'){
-        const idsRelevantes = new Set(
-          demandasCache
-            .filter(d =>
-              (d.encaminhar_para === currentUser.nome) ||
-              (d.tags_programadores || []).includes(currentUser.nome)
-            )
-            .map(d=>d.id)
-        );
-        andRelevantes = andamentosLista.filter(a => idsRelevantes.has(a.demanda_id)).slice(0,10);
-      }else{
-        andRelevantes = andamentosLista.slice(0,10);
-      }
-
-      let html = `<p style="font-size:13px;margin-bottom:8px;">${intro}</p>`;
-
-      if(tipo === 'GESTOR'){
-        const pendentes = usuariosCache.filter(u => (u.status || 'PENDENTE') === 'PENDENTE');
-        if(pendentes.length > 0){
-          const lista = pendentes
-            .map(u => `${u.nome} (${u.tipo}${u.unidade ? ' · ' + u.unidade : ''})`)
-            .join('; ');
-          html += `<p style="font-size:12px;margin-bottom:6px;color:#b91c1c;"><strong>⚠ Usuários aguardando aprovação:</strong> ${lista}</p>`;
-        } else {
-          html += `<p style="font-size:12px;margin-bottom:6px;">Nenhum usuário pendente de aprovação.</p>`;
-        }
-      }
-
-      if(andRelevantes.length === 0){
-        html += '<p class="muted">Nenhuma atualização de andamento registrada ainda.</p>';
-      }else{
-        html += '<p class="muted" style="margin-bottom:4px;">Últimas atualizações de andamento:</p>';
-        html += '<ul style="padding-left:18px;font-size:12px;">';
-        andRelevantes.forEach(a=>{
-          const dem = mapaDemandas[a.demanda_id];
-          const cod = dem ? dem.codigo : '#';
-          const autor = a.autor || 'desconhecido';
-          const data = a.data_hora_local || (a.created_at ? new Date(a.created_at).toLocaleString('pt-BR') : '');
-          let desc = a.descricao || '';
-          if(desc.length>80) desc = desc.substring(0,80)+'...';
-          desc = desc.replace(/</g,'&lt;');
-          html += `<li>[${data}] <strong>${cod}</strong> - ${autor}: ${desc}</li>`;
-        });
-        html += '</ul>';
-      }
-
-      quadroAvisosEl.innerHTML = html;
-    }
-
-    function configurarInterfacePorTipo(){
-      if(!currentUser){
-        cardFormDemanda.style.display = 'none';
-        cardListaDemandas.style.display = 'none';
-        cardListaEnc.style.display = 'none';
-        cardUsuariosPendentes.style.display = 'none';
-        return;
-      }
-      if(currentUser.tipo === 'PROGRAMADOR'){
-        cardFormDemanda.style.display = 'none';
-        cardListaDemandas.style.display = 'none';
-        cardListaEnc.style.display = 'block';
-        cardUsuariosPendentes.style.display = 'none';
-        cardListaEnc.querySelector('h2').textContent = 'Demandas Recebidas';
-      }else if(currentUser.tipo === 'ATENDENTE'){
-        cardFormDemanda.style.display = 'block';
-        cardListaDemandas.style.display = 'block';
-        cardListaEnc.style.display = 'block';
-        cardUsuariosPendentes.style.display = 'none';
-        cardListaEnc.querySelector('h2').textContent = 'Demandas Encaminhadas';
-      }else if(currentUser.tipo === 'GESTOR'){
-        cardFormDemanda.style.display = 'block';
-        cardListaDemandas.style.display = 'block';
-        cardListaEnc.style.display = 'block';
-        cardUsuariosPendentes.style.display = 'block';
-        cardListaEnc.querySelector('h2').textContent = 'Demandas Encaminhadas';
-      }
-    }
-
-    btnLogout.addEventListener('click', ()=>{ currentUser = null; location.reload(); });
-
-    (async function init(){
-      connectionLabel.textContent = 'Conectando Supabase...';
-      await carregarUsuarios();
-      connectionLabel.textContent = 'Supabase pronto · Aguarde login';
-      quadroAvisosEl.textContent = 'Faça login para ver avisos.';
-    })();
   </script>
+  <script src="app.js"></script>
 </body>
 </html>
