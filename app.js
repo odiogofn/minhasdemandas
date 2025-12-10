@@ -1,5 +1,5 @@
 // =========================
-// CONFIG SUPABASE (SUAS CHAVES)
+// CONFIGURAÇÃO SUPABASE
 // =========================
 
 const SUPABASE_URL = "https://cmxepgkkdvyfraesvqly.supabase.co";
@@ -8,14 +8,10 @@ const SUPABASE_ANON_KEY =
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// =========================
-// ESTADO GLOBAL
-// =========================
-
+// Estado global
 let currentUserProfile = null;
 let currentSession = null;
 let demandasCache = [];
-
 let filtrosAtuais = {
   buscaTexto: "",
   ocultarConcluidas: false,
@@ -28,7 +24,7 @@ let filtrosAtuais = {
 };
 
 // =========================
-// HELPERS DOM
+// UTILITÁRIOS
 // =========================
 
 function byId(id) {
@@ -51,13 +47,14 @@ function hide(id) {
 }
 
 function formatarDataHoraBr(dateStr) {
-  if (!dateStr) return "-";
+  if (!dateStr) return "";
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return dateStr;
   return d.toLocaleString("pt-BR");
 }
 
 function validarSenhaSimples(senha) {
+  // Até 10 caracteres, apenas letras e números (sem acentos e símbolos)
   const re = /^[A-Za-z0-9]{1,10}$/;
   return re.test(senha);
 }
@@ -71,17 +68,26 @@ async function inicializarApp() {
   if (error) {
     console.error("Erro ao obter sessão:", error);
   }
+
   currentSession = data?.session || null;
 
   registrarListeners();
 
   if (currentSession) {
     await carregarPerfilUsuarioAtual();
-    mostrarApp();
+    if (currentUserProfile) {
+      mostrarApp();
+    } else {
+      mostrarTelaAuth();
+    }
   } else {
     mostrarTelaAuth();
   }
 }
+
+// =========================
+// AUTH
+// =========================
 
 function mostrarTelaAuth() {
   show("auth-container");
@@ -107,10 +113,6 @@ function mostrarApp() {
   carregarPainelGestor();
 }
 
-// =========================
-// AUTH
-// =========================
-
 async function carregarPerfilUsuarioAtual() {
   const { data: userData, error: userError } = await supabaseClient.auth.getUser();
   if (userError || !userData?.user) {
@@ -133,8 +135,7 @@ async function carregarPerfilUsuarioAtual() {
     return;
   }
 
-  // Se estiver pendente, não deixa logar
-  if (perfil.status && perfil.status.toUpperCase() === "PENDENTE") {
+  if ((perfil.status || "").toUpperCase() === "PENDENTE") {
     await supabaseClient.auth.signOut();
     currentSession = null;
     currentUserProfile = null;
@@ -149,15 +150,17 @@ async function carregarPerfilUsuarioAtual() {
   currentUserProfile = perfil;
 }
 
+// Cadastro de novo usuário
 async function cadastrarNovoUsuario() {
   const nome = byId("cad-nome").value.trim();
   const email = byId("cad-email").value.trim();
   const dtNasc = byId("cad-dt-nasc").value;
   const unidade = byId("cad-unidade").value;
+  const tipo = byId("cad-tipo").value;
   const senha = byId("cad-senha").value;
   const senha2 = byId("cad-senha2").value;
 
-  if (!nome || !email || !senha || !senha2 || !unidade) {
+  if (!nome || !email || !senha || !senha2 || !unidade || !tipo) {
     setText("auth-status", "Preencha todos os campos obrigatórios.");
     return;
   }
@@ -170,7 +173,7 @@ async function cadastrarNovoUsuario() {
   if (!validarSenhaSimples(senha)) {
     setText(
       "auth-status",
-      "Senha inválida. Use até 10 caracteres, somente letras e números, sem acentos ou símbolos."
+      "Senha inválida. Use até 10 caracteres, apenas letras e números (sem símbolos)."
     );
     return;
   }
@@ -188,17 +191,16 @@ async function cadastrarNovoUsuario() {
     return;
   }
 
-  // Pega o ID direto da resposta do signUp
   const uid = signData?.user?.id;
   if (!uid) {
+    // Pode acontecer se o Supabase exigir confirmação de email e não retornar user
     setText(
       "auth-status",
-      "Usuário criado no Auth, mas não foi possível obter o ID. Verifique se seu projeto exige confirmação de e-mail."
+      "Usuário criado no Auth, mas não foi possível obter o ID. Verifique as configurações de confirmação de email no Supabase."
     );
     return;
   }
 
-  // Salva perfil na tabela usuarios (status PENDENTE por padrão)
   const { error: perfilError } = await supabaseClient.from("usuarios").insert([
     {
       id: uid,
@@ -206,8 +208,8 @@ async function cadastrarNovoUsuario() {
       email,
       dt_nascimento: dtNasc || null,
       unidade,
-      tipo: "PROGRAMADOR",
-      status: "PENDENTE",
+      tipo, // PROGRAMADOR / ATENDENTE / GESTOR
+      status: "PENDENTE", // gestor precisa aprovar
     },
   ]);
 
@@ -222,13 +224,15 @@ async function cadastrarNovoUsuario() {
 
   setText(
     "auth-status",
-    "Cadastro realizado! Aguarde o gestor aprovar seu acesso antes de entrar."
+    "Cadastro realizado com sucesso! Aguarde aprovação do gestor para poder acessar."
   );
 
-  // Faz logout para não deixar logado com perfil pendente
+  // Sai da sessão criada no signUp para evitar usar usuário pendente
   await supabaseClient.auth.signOut();
+  currentSession = null;
 }
 
+// Login
 async function login() {
   const email = byId("login-email").value.trim();
   const senha = byId("login-senha").value;
@@ -247,6 +251,7 @@ async function login() {
 
   if (error) {
     console.error(error);
+    // Esse é o erro que você viu: Invalid login credentials
     setText("auth-status", "Erro ao autenticar: " + error.message);
     return;
   }
@@ -254,7 +259,7 @@ async function login() {
   currentSession = data.session;
   await carregarPerfilUsuarioAtual();
   if (!currentUserProfile) {
-    // carregarPerfilUsuarioAtual já tratou pendente
+    // se estiver pendente, já foi tratado em carregarPerfilUsuarioAtual
     return;
   }
 
@@ -262,6 +267,7 @@ async function login() {
   mostrarApp();
 }
 
+// Logout
 async function logout() {
   await supabaseClient.auth.signOut();
   currentSession = null;
@@ -283,35 +289,38 @@ function ajustarInterfacePorPerfil() {
     show("sec-lista-demandas");
     show("sec-detalhes-demanda");
     hide("sec-painel-gestor");
+    hide("btn-graficos");
   } else if (tipo === "ATENDENTE") {
     show("sec-cadastro-demanda");
     show("sec-lista-demandas");
     show("sec-detalhes-demanda");
     hide("sec-painel-gestor");
+    show("btn-graficos");
   } else if (tipo === "GESTOR") {
     show("sec-cadastro-demanda");
     show("sec-lista-demandas");
     show("sec-detalhes-demanda");
     show("sec-painel-gestor");
+    show("btn-graficos");
   }
 
   const ajudaEl = byId("ajuda-perfil");
-  if (ajudaEl) {
-    if (tipo === "PROGRAMADOR") {
-      ajudaEl.textContent =
-        "Perfil Programador: você pode visualizar suas demandas e registrar atualizações.";
-    } else if (tipo === "ATENDENTE") {
-      ajudaEl.textContent =
-        "Perfil Atendente: você pode cadastrar, editar e excluir demandas.";
-    } else if (tipo === "GESTOR") {
-      ajudaEl.textContent =
-        "Perfil Gestor: você acompanha a produção, aprova usuários e gerencia demandas.";
-    }
+  if (!ajudaEl) return;
+
+  if (tipo === "PROGRAMADOR") {
+    ajudaEl.textContent =
+      "Perfil Programador: você visualiza suas demandas e registra atualizações.";
+  } else if (tipo === "ATENDENTE") {
+    ajudaEl.textContent =
+      "Perfil Atendente: você pode cadastrar, editar e excluir demandas.";
+  } else if (tipo === "GESTOR") {
+    ajudaEl.textContent =
+      "Perfil Gestor: acompanha produção, gerencia usuários e demandas.";
   }
 }
 
 // =========================
-// DEMANDAS
+// DEMANDAS – CRUD & LISTA
 // =========================
 
 function setStatusBar(texto) {
@@ -350,13 +359,14 @@ async function gerarCodigoDemanda() {
 
 async function salvarDemanda(e) {
   e.preventDefault();
+
   if (!currentUserProfile) {
     alert("Faça login antes de cadastrar demanda.");
     return;
   }
 
-  const tipoPerfil = (currentUserProfile.tipo || "").toUpperCase();
-  if (tipoPerfil === "PROGRAMADOR") {
+  const tipoUsuario = (currentUserProfile.tipo || "").toUpperCase();
+  if (tipoUsuario === "PROGRAMADOR") {
     alert("Programador não pode cadastrar demandas.");
     return;
   }
@@ -373,7 +383,6 @@ async function salvarDemanda(e) {
   const statusDemanda = byId("dem-status").value;
   const linkTrello = byId("dem-link-trello").value.trim();
   const linkEmail = byId("dem-link-email").value.trim();
-  const atendente = currentUserProfile.nome;
 
   if (!municipio || !assunto || !descricao) {
     alert("Preencha Município, Assunto e Descrição.");
@@ -398,7 +407,7 @@ async function salvarDemanda(e) {
       forma_atendimento: formaAtendimento || null,
       prioridade: prioridade || "MÉDIA",
       status: statusDemanda || "ABERTA",
-      atendente,
+      atendente: currentUserProfile.nome,
       link_trello: linkTrello || null,
       link_email: linkEmail || null,
       data_hora_local: agoraLocal,
@@ -462,20 +471,28 @@ function renderizarDemandas() {
 
   if (filtrosAtuais.status !== "TODOS") {
     lista = lista.filter(
-      (d) => (d.status || "").toUpperCase() === filtrosAtuais.status.toUpperCase()
+      (d) =>
+        (d.status || "").toUpperCase() ===
+        filtrosAtuais.status.toUpperCase()
     );
   }
 
   if (filtrosAtuais.atendente !== "TODOS") {
-    lista = lista.filter((d) => (d.atendente || "") === filtrosAtuais.atendente);
+    lista = lista.filter(
+      (d) => (d.atendente || "") === filtrosAtuais.atendente
+    );
   }
 
   if (filtrosAtuais.programador !== "TODOS") {
-    lista = lista.filter((d) => (d.programador || "") === filtrosAtuais.programador);
+    lista = lista.filter(
+      (d) => (d.programador || "") === filtrosAtuais.programador
+    );
   }
 
   if (filtrosAtuais.municipio !== "TODOS") {
-    lista = lista.filter((d) => (d.municipio || "") === filtrosAtuais.municipio);
+    lista = lista.filter(
+      (d) => (d.municipio || "") === filtrosAtuais.municipio
+    );
   }
 
   if (filtrosAtuais.estado !== "TODOS") {
@@ -520,12 +537,11 @@ function renderizarDemandas() {
     tdStatus.textContent = d.status || "";
     tr.appendChild(tdStatus);
 
-    const tdPrio = document.createElement("td");
-    tdPrio.textContent = d.prioridade || "";
-    tr.appendChild(tdPrio);
+    const tdPrioridade = document.createElement("td");
+    tdPrioridade.textContent = d.prioridade || "";
+    tr.appendChild(tdPrioridade);
 
     tr.addEventListener("click", () => abrirDetalhesDemanda(d.id));
-
     tbody.appendChild(tr);
   });
 
@@ -540,25 +556,24 @@ async function abrirDetalhesDemanda(demandaId) {
   const demanda = demandasCache.find((d) => d.id === demandaId);
   if (!demanda) return;
 
-  setText("det-codigo", demanda.codigo || "-");
-  setText("det-municipio", demanda.municipio || "-");
-  setText("det-tipo-entidade", demanda.tipo_entidade || "-");
-  setText("det-contato-cliente", demanda.contato_cliente || "-");
-  setText("det-estado", demanda.estado || "-");
-  setText("det-assunto", demanda.assunto || "-");
-  setText("det-descricao", demanda.descricao || "-");
-  setText("det-programador", demanda.programador || "-");
-  setText("det-forma-atendimento", demanda.forma_atendimento || "-");
-  setText("det-prioridade", demanda.prioridade || "-");
-  setText("det-status", demanda.status || "-");
-  setText("det-atendente", demanda.atendente || "-");
-  setText("det-link-trello", demanda.link_trello || "-");
-  setText("det-link-email", demanda.link_email || "-");
-  setText("det-criado-em", formatarDataHoraBr(demanda.created_at));
+  byId("det-codigo").textContent = demanda.codigo || "-";
+  byId("det-municipio").textContent = demanda.municipio || "-";
+  byId("det-tipo-entidade").textContent = demanda.tipo_entidade || "-";
+  byId("det-contato-cliente").textContent = demanda.contato_cliente || "-";
+  byId("det-estado").textContent = demanda.estado || "-";
+  byId("det-assunto").textContent = demanda.assunto || "-";
+  byId("det-descricao").textContent = demanda.descricao || "-";
+  byId("det-programador").textContent = demanda.programador || "-";
+  byId("det-forma-atendimento").textContent = demanda.forma_atendimento || "-";
+  byId("det-prioridade").textContent = demanda.prioridade || "-";
+  byId("det-status").textContent = demanda.status || "-";
+  byId("det-atendente").textContent = demanda.atendente || "-";
+  byId("det-link-trello").textContent = demanda.link_trello || "-";
+  byId("det-link-email").textContent = demanda.link_email || "-";
+  byId("det-criado-em").textContent = formatarDataHoraBr(demanda.created_at);
   byId("det-demanda-id").value = demanda.id;
 
   await carregarAtualizacoesDemanda(demanda.id);
-
   show("sec-detalhes-demanda");
 }
 
@@ -589,9 +604,8 @@ async function carregarAtualizacoesDemanda(demandaId) {
     const li = document.createElement("li");
     li.classList.add("item-atualizacao");
     li.innerHTML = `
-      <div><strong>${a.usuario_nome || "Usuário"}</strong> · <span class="muted">${formatarDataHoraBr(
-      a.created_at
-    )}</span></div>
+      <div><strong>${a.usuario_nome || "Usuário"}</strong> – 
+        <span class="muted">${formatarDataHoraBr(a.created_at)}</span></div>
       <div>${a.mensagem || ""}</div>
     `;
     listaEl.appendChild(li);
@@ -633,7 +647,7 @@ async function salvarAtualizacaoDemanda(e) {
 }
 
 // =========================
-// FILTROS / SUGESTÕES
+// FILTROS E SUGESTÕES
 // =========================
 
 function atualizarFiltrosSugestoes() {
@@ -667,7 +681,7 @@ function atualizarFiltrosSugestoes() {
   popularSelectComSet("filtro-programador", programadores, "Programador");
   popularSelectComSet("filtro-municipio", municipios, "Município");
   popularSelectComSet("filtro-estado", estados, "Estado");
-  popularSelectComSet("filtro-tipo-entidade", tiposEntidade, "Tipo de entidade");
+  popularSelectComSet("filtro-tipo-entidade", tiposEntidade, "Tipo Entidade");
 
   renderizarSugestoesChips("sugs-programador", programadores, (valor) => {
     byId("dem-programador").value = valor;
@@ -733,85 +747,75 @@ function renderizarSugestoesChips(containerId, setValores, onClickValor) {
 
   cont.innerHTML = "";
 
-  if (setValores.size === 0) {
-    cont.innerHTML = `<span class="muted">Sem sugestões ainda.</span>`;
+  const valoresOrdenados = Array.from(setValores).sort((a, b) =>
+    a.localeCompare(b, "pt-BR")
+  );
+
+  if (valoresOrdenados.length === 0) {
+    cont.innerHTML = `<span class="muted small">Sem sugestões ainda.</span>`;
     return;
   }
 
-  Array.from(setValores)
-    .sort((a, b) => a.localeCompare(b, "pt-BR"))
-    .forEach((valor) => {
-      const span = document.createElement("span");
-      span.classList.add("chip-sugestao");
-      span.textContent = valor;
-      span.addEventListener("click", () => onClickValor(valor));
-      cont.appendChild(span);
-    });
+  valoresOrdenados.forEach((valor) => {
+    const span = document.createElement("span");
+    span.classList.add("chip-sugestao");
+    span.textContent = valor;
+    span.addEventListener("click", () => onClickValor(valor));
+    cont.appendChild(span);
+  });
 }
 
-// handlers filtros
-
+// Eventos de filtros
 function onFiltroStatusChange() {
-  const sel = byId("filtro-status");
-  filtrosAtuais.status = sel ? sel.value : "TODOS";
+  filtrosAtuais.status = byId("filtro-status").value || "TODOS";
   renderizarDemandas();
 }
-
 function onFiltroAtendenteChange() {
-  const sel = byId("filtro-atendente");
-  filtrosAtuais.atendente = sel ? sel.value : "TODOS";
+  filtrosAtuais.atendente = byId("filtro-atendente").value || "TODOS";
   renderizarDemandas();
 }
-
 function onFiltroProgramadorChange() {
-  const sel = byId("filtro-programador");
-  filtrosAtuais.programador = sel ? sel.value : "TODOS";
+  filtrosAtuais.programador = byId("filtro-programador").value || "TODOS";
   renderizarDemandas();
 }
-
 function onFiltroMunicipioChange() {
-  const sel = byId("filtro-municipio");
-  filtrosAtuais.municipio = sel ? sel.value : "TODOS";
+  filtrosAtuais.municipio = byId("filtro-municipio").value || "TODOS";
   renderizarDemandas();
 }
-
 function onFiltroEstadoChange() {
-  const sel = byId("filtro-estado");
-  filtrosAtuais.estado = sel ? sel.value : "TODOS";
+  filtrosAtuais.estado = byId("filtro-estado").value || "TODOS";
   renderizarDemandas();
 }
-
 function onFiltroTipoEntidadeChange() {
-  const sel = byId("filtro-tipo-entidade");
-  filtrosAtuais.tipoEntidade = sel ? sel.value : "TODOS";
+  filtrosAtuais.tipoEntidade =
+    byId("filtro-tipo-entidade").value || "TODOS";
   renderizarDemandas();
 }
-
 function onFiltroOcultarConcluidasChange() {
-  const chk = byId("filtro-ocultar-concluidas");
-  filtrosAtuais.ocultarConcluidas = !!(chk && chk.checked);
+  filtrosAtuais.ocultarConcluidas =
+    byId("filtro-ocultar-concluidas").checked;
   renderizarDemandas();
 }
-
 function onBuscaTextoKeyup() {
-  const inp = byId("filtro-busca");
-  filtrosAtuais.buscaTexto = inp ? inp.value : "";
+  filtrosAtuais.buscaTexto = byId("filtro-busca").value || "";
   renderizarDemandas();
 }
 
 // =========================
-// PAINEL GESTOR / GRÁFICOS (BASE)
+// PAINEL GESTOR (ESQUELETO)
 // =========================
 
 async function carregarPainelGestor() {
   if (!currentUserProfile) return;
   const tipo = (currentUserProfile.tipo || "").toUpperCase();
   if (tipo !== "GESTOR") return;
-  // Aqui você pode montar queries agregadas e alimentar gráficos
+
+  // Aqui você pode fazer queries extras para montar gráficos e painéis.
+  // Por enquanto estamos só deixando preparado.
 }
 
 // =========================
-// EVENTOS
+// LISTENERS
 // =========================
 
 function registrarListeners() {
@@ -848,7 +852,8 @@ function registrarListeners() {
     selMunicipio.addEventListener("change", onFiltroMunicipioChange);
 
   const selEstado = byId("filtro-estado");
-  if (selEstado) selEstado.addEventListener("change", onFiltroEstadoChange);
+  if (selEstado)
+    selEstado.addEventListener("change", onFiltroEstadoChange);
 
   const selTipoEntidade = byId("filtro-tipo-entidade");
   if (selTipoEntidade)
@@ -864,7 +869,9 @@ function registrarListeners() {
   const btnGraficos = byId("btn-graficos");
   if (btnGraficos) {
     btnGraficos.addEventListener("click", () => {
-      alert("Aqui você conecta os gráficos (por município, atendente, etc.).");
+      alert(
+        "Aqui você pode abrir uma tela com gráficos (por Município, Atendente, Tipo de Entidade, etc.)."
+      );
     });
   }
 }
