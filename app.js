@@ -1,5 +1,5 @@
 // =========================
-// CONFIGURAÇÃO SUPABASE
+// CONFIG SUPABASE (SUAS CHAVES)
 // =========================
 
 const SUPABASE_URL = "https://cmxepgkkdvyfraesvqly.supabase.co";
@@ -8,7 +8,10 @@ const SUPABASE_ANON_KEY =
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Estado global
+// =========================
+// ESTADO GLOBAL
+// =========================
+
 let currentUserProfile = null;
 let currentSession = null;
 let demandasCache = [];
@@ -25,36 +28,38 @@ let filtrosAtuais = {
 };
 
 // =========================
-// UTILITÁRIOS
+// HELPERS DOM
 // =========================
 
 function byId(id) {
   return document.getElementById(id);
 }
+
 function setText(id, text) {
   const el = byId(id);
   if (el) el.textContent = text;
 }
+
 function show(id) {
   const el = byId(id);
   if (el) el.style.display = "";
 }
+
 function hide(id) {
   const el = byId(id);
   if (el) el.style.display = "none";
 }
+
 function formatarDataHoraBr(dateStr) {
-  if (!dateStr) return "";
+  if (!dateStr) return "-";
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return dateStr;
   return d.toLocaleString("pt-BR");
 }
+
 function validarSenhaSimples(senha) {
   const re = /^[A-Za-z0-9]{1,10}$/;
   return re.test(senha);
-}
-function setStatusBar(texto) {
-  setText("status-bar", texto);
 }
 
 // =========================
@@ -63,18 +68,16 @@ function setStatusBar(texto) {
 
 async function inicializarApp() {
   const { data, error } = await supabaseClient.auth.getSession();
-  if (error) console.error("Erro ao obter sessão:", error);
+  if (error) {
+    console.error("Erro ao obter sessão:", error);
+  }
   currentSession = data?.session || null;
 
   registrarListeners();
 
   if (currentSession) {
     await carregarPerfilUsuarioAtual();
-    if (currentUserProfile) {
-      mostrarApp();
-    } else {
-      mostrarTelaAuth();
-    }
+    mostrarApp();
   } else {
     mostrarTelaAuth();
   }
@@ -130,6 +133,7 @@ async function carregarPerfilUsuarioAtual() {
     return;
   }
 
+  // Se estiver pendente, não deixa logar
   if (perfil.status && perfil.status.toUpperCase() === "PENDENTE") {
     await supabaseClient.auth.signOut();
     currentSession = null;
@@ -166,7 +170,7 @@ async function cadastrarNovoUsuario() {
   if (!validarSenhaSimples(senha)) {
     setText(
       "auth-status",
-      "Senha inválida. Use até 10 caracteres, apenas letras e números, sem símbolos."
+      "Senha inválida. Use até 10 caracteres, somente letras e números, sem acentos ou símbolos."
     );
     return;
   }
@@ -184,15 +188,17 @@ async function cadastrarNovoUsuario() {
     return;
   }
 
-  const { data: userData, error: userError } = await supabaseClient.auth.getUser();
-  if (userError || !userData?.user) {
-    console.error(userError);
-    setText("auth-status", "Usuário criado, mas não foi possível obter o ID.");
+  // Pega o ID direto da resposta do signUp
+  const uid = signData?.user?.id;
+  if (!uid) {
+    setText(
+      "auth-status",
+      "Usuário criado no Auth, mas não foi possível obter o ID. Verifique se seu projeto exige confirmação de e-mail."
+    );
     return;
   }
 
-  const uid = userData.user.id;
-
+  // Salva perfil na tabela usuarios (status PENDENTE por padrão)
   const { error: perfilError } = await supabaseClient.from("usuarios").insert([
     {
       id: uid,
@@ -216,9 +222,10 @@ async function cadastrarNovoUsuario() {
 
   setText(
     "auth-status",
-    "Cadastro realizado com sucesso! Aguarde aprovação do gestor para acessar."
+    "Cadastro realizado! Aguarde o gestor aprovar seu acesso antes de entrar."
   );
 
+  // Faz logout para não deixar logado com perfil pendente
   await supabaseClient.auth.signOut();
 }
 
@@ -245,9 +252,11 @@ async function login() {
   }
 
   currentSession = data.session;
-
   await carregarPerfilUsuarioAtual();
-  if (!currentUserProfile) return;
+  if (!currentUserProfile) {
+    // carregarPerfilUsuarioAtual já tratou pendente
+    return;
+  }
 
   setText("auth-status", "");
   mostrarApp();
@@ -274,19 +283,16 @@ function ajustarInterfacePorPerfil() {
     show("sec-lista-demandas");
     show("sec-detalhes-demanda");
     hide("sec-painel-gestor");
-    hide("btn-graficos");
   } else if (tipo === "ATENDENTE") {
     show("sec-cadastro-demanda");
     show("sec-lista-demandas");
     show("sec-detalhes-demanda");
     hide("sec-painel-gestor");
-    show("btn-graficos");
   } else if (tipo === "GESTOR") {
     show("sec-cadastro-demanda");
     show("sec-lista-demandas");
     show("sec-detalhes-demanda");
     show("sec-painel-gestor");
-    show("btn-graficos");
   }
 
   const ajudaEl = byId("ajuda-perfil");
@@ -305,8 +311,12 @@ function ajustarInterfacePorPerfil() {
 }
 
 // =========================
-// DEMANDAS – CRUD
+// DEMANDAS
 // =========================
+
+function setStatusBar(texto) {
+  setText("status-bar", texto);
+}
 
 async function gerarCodigoDemanda() {
   const ano = new Date().getFullYear();
@@ -329,7 +339,7 @@ async function gerarCodigoDemanda() {
   }
 
   const ultimo = data[0].codigo;
-  const partes = ultimo.split("-");
+  const partes = (ultimo || "").split("-");
   let num = 0;
   if (partes.length > 1) {
     num = parseInt(partes[1], 10) || 0;
@@ -345,8 +355,8 @@ async function salvarDemanda(e) {
     return;
   }
 
-  const tipo = (currentUserProfile.tipo || "").toUpperCase();
-  if (tipo === "PROGRAMADOR") {
+  const tipoPerfil = (currentUserProfile.tipo || "").toUpperCase();
+  if (tipoPerfil === "PROGRAMADOR") {
     alert("Programador não pode cadastrar demandas.");
     return;
   }
@@ -361,9 +371,9 @@ async function salvarDemanda(e) {
   const formaAtendimento = byId("dem-forma-atendimento").value.trim();
   const prioridade = byId("dem-prioridade").value;
   const statusDemanda = byId("dem-status").value;
-  const atendente = currentUserProfile.nome;
   const linkTrello = byId("dem-link-trello").value.trim();
   const linkEmail = byId("dem-link-email").value.trim();
+  const atendente = currentUserProfile.nome;
 
   if (!municipio || !assunto || !descricao) {
     alert("Preencha Município, Assunto e Descrição.");
@@ -424,6 +434,7 @@ async function carregarDemandas() {
   }
 
   const { data, error } = await query;
+
   if (error) {
     console.error("Erro ao carregar demandas:", error);
     setStatusBar("Erro ao carregar demandas: " + error.message);
@@ -444,30 +455,39 @@ function renderizarDemandas() {
   let lista = [...demandasCache];
 
   if (filtrosAtuais.ocultarConcluidas) {
-    lista = lista.filter((d) => (d.status || "").toUpperCase() !== "CONCLUÍDA");
+    lista = lista.filter(
+      (d) => (d.status || "").toUpperCase() !== "CONCLUÍDA"
+    );
   }
+
   if (filtrosAtuais.status !== "TODOS") {
     lista = lista.filter(
       (d) => (d.status || "").toUpperCase() === filtrosAtuais.status.toUpperCase()
     );
   }
+
   if (filtrosAtuais.atendente !== "TODOS") {
     lista = lista.filter((d) => (d.atendente || "") === filtrosAtuais.atendente);
   }
+
   if (filtrosAtuais.programador !== "TODOS") {
     lista = lista.filter((d) => (d.programador || "") === filtrosAtuais.programador);
   }
+
   if (filtrosAtuais.municipio !== "TODOS") {
     lista = lista.filter((d) => (d.municipio || "") === filtrosAtuais.municipio);
   }
+
   if (filtrosAtuais.estado !== "TODOS") {
     lista = lista.filter((d) => (d.estado || "") === filtrosAtuais.estado);
   }
+
   if (filtrosAtuais.tipoEntidade !== "TODOS") {
     lista = lista.filter(
       (d) => (d.tipo_entidade || "") === filtrosAtuais.tipoEntidade
     );
   }
+
   if (filtrosAtuais.buscaTexto.trim() !== "") {
     const termo = filtrosAtuais.buscaTexto.toLowerCase();
     lista = lista.filter((d) => {
@@ -500,11 +520,12 @@ function renderizarDemandas() {
     tdStatus.textContent = d.status || "";
     tr.appendChild(tdStatus);
 
-    const tdPrioridade = document.createElement("td");
-    tdPrioridade.textContent = d.prioridade || "";
-    tr.appendChild(tdPrioridade);
+    const tdPrio = document.createElement("td");
+    tdPrio.textContent = d.prioridade || "";
+    tr.appendChild(tdPrio);
 
     tr.addEventListener("click", () => abrirDetalhesDemanda(d.id));
+
     tbody.appendChild(tr);
   });
 
@@ -512,28 +533,28 @@ function renderizarDemandas() {
 }
 
 // =========================
-// DETALHES + ATUALIZAÇÕES
+// DETALHES E ATUALIZAÇÕES
 // =========================
 
 async function abrirDetalhesDemanda(demandaId) {
   const demanda = demandasCache.find((d) => d.id === demandaId);
   if (!demanda) return;
 
-  byId("det-codigo").textContent = demanda.codigo || "-";
-  byId("det-municipio").textContent = demanda.municipio || "-";
-  byId("det-tipo-entidade").textContent = demanda.tipo_entidade || "-";
-  byId("det-contato-cliente").textContent = demanda.contato_cliente || "-";
-  byId("det-estado").textContent = demanda.estado || "-";
-  byId("det-assunto").textContent = demanda.assunto || "-";
-  byId("det-descricao").textContent = demanda.descricao || "-";
-  byId("det-programador").textContent = demanda.programador || "-";
-  byId("det-forma-atendimento").textContent = demanda.forma_atendimento || "-";
-  byId("det-prioridade").textContent = demanda.prioridade || "-";
-  byId("det-status").textContent = demanda.status || "-";
-  byId("det-atendente").textContent = demanda.atendente || "-";
-  byId("det-link-trello").textContent = demanda.link_trello || "-";
-  byId("det-link-email").textContent = demanda.link_email || "-";
-  byId("det-criado-em").textContent = formatarDataHoraBr(demanda.created_at);
+  setText("det-codigo", demanda.codigo || "-");
+  setText("det-municipio", demanda.municipio || "-");
+  setText("det-tipo-entidade", demanda.tipo_entidade || "-");
+  setText("det-contato-cliente", demanda.contato_cliente || "-");
+  setText("det-estado", demanda.estado || "-");
+  setText("det-assunto", demanda.assunto || "-");
+  setText("det-descricao", demanda.descricao || "-");
+  setText("det-programador", demanda.programador || "-");
+  setText("det-forma-atendimento", demanda.forma_atendimento || "-");
+  setText("det-prioridade", demanda.prioridade || "-");
+  setText("det-status", demanda.status || "-");
+  setText("det-atendente", demanda.atendente || "-");
+  setText("det-link-trello", demanda.link_trello || "-");
+  setText("det-link-email", demanda.link_email || "-");
+  setText("det-criado-em", formatarDataHoraBr(demanda.created_at));
   byId("det-demanda-id").value = demanda.id;
 
   await carregarAtualizacoesDemanda(demanda.id);
@@ -568,7 +589,7 @@ async function carregarAtualizacoesDemanda(demandaId) {
     const li = document.createElement("li");
     li.classList.add("item-atualizacao");
     li.innerHTML = `
-      <div><strong>${a.usuario_nome || "Usuário"}</strong> – <span class="muted">${formatarDataHoraBr(
+      <div><strong>${a.usuario_nome || "Usuário"}</strong> · <span class="muted">${formatarDataHoraBr(
       a.created_at
     )}</span></div>
       <div>${a.mensagem || ""}</div>
@@ -612,7 +633,7 @@ async function salvarAtualizacaoDemanda(e) {
 }
 
 // =========================
-// FILTROS & SUGESTÕES
+// FILTROS / SUGESTÕES
 // =========================
 
 function atualizarFiltrosSugestoes() {
@@ -646,14 +667,16 @@ function atualizarFiltrosSugestoes() {
   popularSelectComSet("filtro-programador", programadores, "Programador");
   popularSelectComSet("filtro-municipio", municipios, "Município");
   popularSelectComSet("filtro-estado", estados, "Estado");
-  popularSelectComSet("filtro-tipo-entidade", tiposEntidade, "Tipo Entidade");
+  popularSelectComSet("filtro-tipo-entidade", tiposEntidade, "Tipo de entidade");
 
   renderizarSugestoesChips("sugs-programador", programadores, (valor) => {
     byId("dem-programador").value = valor;
   });
+
   renderizarSugestoesChips("sugs-assunto", assuntos, (valor) => {
     byId("dem-assunto").value = valor;
   });
+
   renderizarSugestoesChips("sugs-forma-atendimento", formasAtendimento, (valor) => {
     const campo = byId("dem-forma-atendimento");
     if (!campo.value) {
@@ -662,16 +685,15 @@ function atualizarFiltrosSugestoes() {
       campo.value = campo.value.trim() + ", " + valor;
     }
   });
-  renderizarSugestoesChips("sugs-atendente", atendentes, (valor) => {
-    if (byId("dem-atendente-manual"))
-      byId("dem-atendente-manual").value = valor;
-  });
+
   renderizarSugestoesChips("sugs-contato-cliente", contatosCliente, (valor) => {
     byId("dem-contato-cliente").value = valor;
   });
+
   renderizarSugestoesChips("sugs-municipio", municipios, (valor) => {
     byId("dem-municipio").value = valor;
   });
+
   renderizarSugestoesChips("sugs-tipo-entidade", tiposEntidade, (valor) => {
     byId("dem-tipo-entidade").value = valor;
   });
@@ -682,8 +704,8 @@ function popularSelectComSet(selectId, setValores, labelPadrao) {
   if (!select) return;
 
   const valorAtual = select.value || "TODOS";
-  select.innerHTML = "";
 
+  select.innerHTML = "";
   const optTodos = document.createElement("option");
   optTodos.value = "TODOS";
   optTodos.textContent = `Todos (${labelPadrao})`;
@@ -708,69 +730,84 @@ function popularSelectComSet(selectId, setValores, labelPadrao) {
 function renderizarSugestoesChips(containerId, setValores, onClickValor) {
   const cont = byId(containerId);
   if (!cont) return;
+
   cont.innerHTML = "";
 
-  const valores = Array.from(setValores).sort((a, b) =>
-    a.localeCompare(b, "pt-BR")
-  );
-
-  if (valores.length === 0) {
+  if (setValores.size === 0) {
     cont.innerHTML = `<span class="muted">Sem sugestões ainda.</span>`;
     return;
   }
 
-  valores.forEach((valor) => {
-    const span = document.createElement("span");
-    span.classList.add("chip-sugestao");
-    span.textContent = valor;
-    span.addEventListener("click", () => onClickValor(valor));
-    cont.appendChild(span);
-  });
+  Array.from(setValores)
+    .sort((a, b) => a.localeCompare(b, "pt-BR"))
+    .forEach((valor) => {
+      const span = document.createElement("span");
+      span.classList.add("chip-sugestao");
+      span.textContent = valor;
+      span.addEventListener("click", () => onClickValor(valor));
+      cont.appendChild(span);
+    });
 }
 
+// handlers filtros
+
 function onFiltroStatusChange() {
-  filtrosAtuais.status = byId("filtro-status").value;
+  const sel = byId("filtro-status");
+  filtrosAtuais.status = sel ? sel.value : "TODOS";
   renderizarDemandas();
 }
+
 function onFiltroAtendenteChange() {
-  filtrosAtuais.atendente = byId("filtro-atendente").value;
+  const sel = byId("filtro-atendente");
+  filtrosAtuais.atendente = sel ? sel.value : "TODOS";
   renderizarDemandas();
 }
+
 function onFiltroProgramadorChange() {
-  filtrosAtuais.programador = byId("filtro-programador").value;
+  const sel = byId("filtro-programador");
+  filtrosAtuais.programador = sel ? sel.value : "TODOS";
   renderizarDemandas();
 }
+
 function onFiltroMunicipioChange() {
-  filtrosAtuais.municipio = byId("filtro-municipio").value;
+  const sel = byId("filtro-municipio");
+  filtrosAtuais.municipio = sel ? sel.value : "TODOS";
   renderizarDemandas();
 }
+
 function onFiltroEstadoChange() {
-  filtrosAtuais.estado = byId("filtro-estado").value;
+  const sel = byId("filtro-estado");
+  filtrosAtuais.estado = sel ? sel.value : "TODOS";
   renderizarDemandas();
 }
+
 function onFiltroTipoEntidadeChange() {
-  filtrosAtuais.tipoEntidade = byId("filtro-tipo-entidade").value;
+  const sel = byId("filtro-tipo-entidade");
+  filtrosAtuais.tipoEntidade = sel ? sel.value : "TODOS";
   renderizarDemandas();
 }
+
 function onFiltroOcultarConcluidasChange() {
-  filtrosAtuais.ocultarConcluidas = byId("filtro-ocultar-concluidas").checked;
+  const chk = byId("filtro-ocultar-concluidas");
+  filtrosAtuais.ocultarConcluidas = !!(chk && chk.checked);
   renderizarDemandas();
 }
+
 function onBuscaTextoKeyup() {
-  filtrosAtuais.buscaTexto = byId("filtro-busca").value;
+  const inp = byId("filtro-busca");
+  filtrosAtuais.buscaTexto = inp ? inp.value : "";
   renderizarDemandas();
 }
 
 // =========================
-// PAINEL GESTOR (BASE)
+// PAINEL GESTOR / GRÁFICOS (BASE)
 // =========================
 
 async function carregarPainelGestor() {
   if (!currentUserProfile) return;
   const tipo = (currentUserProfile.tipo || "").toUpperCase();
   if (tipo !== "GESTOR") return;
-
-  // Aqui você pode montar seus KPIs, últimos 10 por status/estado etc.
+  // Aqui você pode montar queries agregadas e alimentar gráficos
 }
 
 // =========================
@@ -782,7 +819,8 @@ function registrarListeners() {
   if (btnLogin) btnLogin.addEventListener("click", login);
 
   const btnCadastrar = byId("btn-cadastrar");
-  if (btnCadastrar) btnCadastrar.addEventListener("click", cadastrarNovoUsuario);
+  if (btnCadastrar)
+    btnCadastrar.addEventListener("click", cadastrarNovoUsuario);
 
   const btnLogout = byId("btn-logout");
   if (btnLogout) btnLogout.addEventListener("click", logout);
@@ -812,9 +850,9 @@ function registrarListeners() {
   const selEstado = byId("filtro-estado");
   if (selEstado) selEstado.addEventListener("change", onFiltroEstadoChange);
 
-  const selTipoEnt = byId("filtro-tipo-entidade");
-  if (selTipoEnt)
-    selTipoEnt.addEventListener("change", onFiltroTipoEntidadeChange);
+  const selTipoEntidade = byId("filtro-tipo-entidade");
+  if (selTipoEntidade)
+    selTipoEntidade.addEventListener("change", onFiltroTipoEntidadeChange);
 
   const chkOcultar = byId("filtro-ocultar-concluidas");
   if (chkOcultar)
@@ -826,12 +864,13 @@ function registrarListeners() {
   const btnGraficos = byId("btn-graficos");
   if (btnGraficos) {
     btnGraficos.addEventListener("click", () => {
-      alert(
-        "Aqui você pode abrir a tela de gráficos (por Município, Atendente, Tipo Entidade, etc.)."
-      );
+      alert("Aqui você conecta os gráficos (por município, atendente, etc.).");
     });
   }
 }
 
-// Boot
+// =========================
+// BOOT
+// =========================
+
 window.addEventListener("load", inicializarApp);
