@@ -1,6 +1,6 @@
-// =========================
+// ====================================
 // CONFIGURAÇÃO SUPABASE
-// =========================
+// ====================================
 
 const SUPABASE_URL = "https://cmxepgkkdvyfraesvqly.supabase.co";
 const SUPABASE_ANON_KEY =
@@ -8,12 +8,11 @@ const SUPABASE_ANON_KEY =
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// =========================
-// ESTADO GLOBAL
-// =========================
-let currentUserProfile = null;
+// Estado global
 let currentSession = null;
+let currentUserProfile = null; // linha da tabela "usuarios"
 let demandasCache = [];
+let usuariosCache = [];        // para preencher "Encaminhar para" e afins
 let filtrosAtuais = {
   buscaTexto: "",
   ocultarConcluidas: false,
@@ -24,47 +23,60 @@ let filtrosAtuais = {
   estado: "TODOS",
   tipoEntidade: "TODOS",
 };
+let demandaEmEdicaoId = null;  // se != null, formulário está em modo editar
 
-// =========================
+
+// ====================================
 // UTILITÁRIOS
-// =========================
+// ====================================
+
 function byId(id) {
   return document.getElementById(id);
 }
-function setText(id, txt) {
+
+function setText(id, texto) {
   const el = byId(id);
-  if (el) el.textContent = txt;
+  if (el) el.textContent = texto;
 }
+
 function show(id) {
   const el = byId(id);
   if (el) el.style.display = "";
 }
+
 function hide(id) {
   const el = byId(id);
   if (el) el.style.display = "none";
 }
-function formatarDataHoraBr(str) {
-  if (!str) return "";
-  const d = new Date(str);
-  if (isNaN(d.getTime())) return str;
+
+function formatarDataHoraBr(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
   return d.toLocaleString("pt-BR");
 }
+
 function validarSenhaSimples(s) {
+  // até 10 caracteres, somente letras e números
   const re = /^[A-Za-z0-9]{1,10}$/;
   return re.test(s);
 }
-function setStatusBar(txt) {
-  setText("status-bar", txt);
+
+function setStatusBar(texto) {
+  setText("status-bar", texto);
 }
 
-// =========================
-// INICIALIZAÇÃO
-// =========================
+
+// ====================================
+// AUTH (CADASTRO / LOGIN / LOGOUT)
+// ====================================
+
 async function inicializarApp() {
   const { data, error } = await supabaseClient.auth.getSession();
   if (error) {
     console.error("Erro ao obter sessão:", error);
   }
+
   currentSession = data?.session || null;
 
   registrarListeners();
@@ -73,22 +85,18 @@ async function inicializarApp() {
     await carregarPerfilUsuarioAtual();
     if (currentUserProfile) {
       mostrarApp();
-      return;
+    } else {
+      mostrarTelaAuth();
     }
+  } else {
+    mostrarTelaAuth();
   }
-  mostrarTelaAuth();
 }
 
-// =========================
-// AUTH
-// =========================
 function mostrarTelaAuth() {
   show("auth-container");
   hide("app-container");
-  setText(
-    "auth-status",
-    "Informe seus dados para entrar ou solicite cadastro. Após cadastro, aguarde aprovação do gestor."
-  );
+  setText("auth-status", "Informe seus dados para entrar ou se cadastrar.");
 }
 
 function mostrarApp() {
@@ -98,24 +106,24 @@ function mostrarApp() {
   if (currentUserProfile) {
     setText(
       "user-label",
-      `${currentUserProfile.nome} (${currentUserProfile.tipo} · ${
-        currentUserProfile.unidade || "-"
-      })`
+      `${currentUserProfile.nome} (${currentUserProfile.tipo} · ${currentUserProfile.unidade || "-"})`
     );
   }
+
   ajustarInterfacePorPerfil();
+  carregarUsuariosAtivos();  // para popular 'encaminhar' e chips
   carregarDemandas();
-  carregarQuadroAvisos();
-  carregarUsuariosGestor();
 }
 
+// Carrega linha da tabela usuarios para o auth.uid()
 async function carregarPerfilUsuarioAtual() {
   const { data: userData, error: userError } = await supabaseClient.auth.getUser();
   if (userError || !userData?.user) {
-    console.error("Erro ao obter usuário Auth:", userError);
+    console.error("Erro ao obter usuário:", userError);
     currentUserProfile = null;
     return;
   }
+
   const uid = userData.user.id;
 
   const { data: perfil, error: perfilError } = await supabaseClient
@@ -126,7 +134,6 @@ async function carregarPerfilUsuarioAtual() {
 
   if (perfilError) {
     console.error("Erro ao obter perfil:", perfilError);
-    setText("auth-status", "Erro ao obter perfil. Fale com o gestor.");
     currentUserProfile = null;
     return;
   }
@@ -138,7 +145,7 @@ async function carregarPerfilUsuarioAtual() {
     mostrarTelaAuth();
     setText(
       "auth-status",
-      "Seu cadastro está pendente de aprovação pelo gestor. Tente novamente mais tarde."
+      "Seu cadastro ainda está pendente de aprovação pelo gestor."
     );
     return;
   }
@@ -146,58 +153,59 @@ async function carregarPerfilUsuarioAtual() {
   currentUserProfile = perfil;
 }
 
+// Cadastro de novo usuário
 async function cadastrarNovoUsuario() {
   const nome = byId("cad-nome").value.trim();
   const email = byId("cad-email").value.trim();
   const dtNasc = byId("cad-dt-nasc").value;
   const unidade = byId("cad-unidade").value;
-  const tipo = byId("cad-tipo").value;
+  const tipo = byId("cad-tipo").value; // GESTOR / ATENDENTE / PROGRAMADOR
   const senha = byId("cad-senha").value;
   const senha2 = byId("cad-senha2").value;
 
-  if (!nome || !email || !unidade || !tipo || !senha || !senha2) {
-    setText("auth-status", "Preencha todos os campos do cadastro.");
+  if (!nome || !email || !senha || !senha2 || !unidade || !tipo) {
+    setText("auth-status", "Preencha todos os campos obrigatórios.");
     return;
   }
+
   if (senha !== senha2) {
     setText("auth-status", "As senhas não conferem.");
     return;
   }
+
   if (!validarSenhaSimples(senha)) {
     setText(
       "auth-status",
-      "Senha inválida. Use até 10 caracteres, apenas letras e números, sem símbolos."
+      "Senha inválida. Use até 10 caracteres, apenas letras e números."
     );
     return;
   }
 
   setText("auth-status", "Criando usuário...");
 
-  // 1) Cria no Auth
-  const { error: signError } = await supabaseClient.auth.signUp({
+  // 1) cria usuário no Auth
+  const { data: signData, error: signError } = await supabaseClient.auth.signUp({
     email,
     password: senha,
   });
+
   if (signError) {
     console.error(signError);
     setText("auth-status", "Erro ao criar usuário: " + signError.message);
     return;
   }
 
-  // 2) Pega user.id
-  const { data: authUser, error: userError } = await supabaseClient.auth.getUser();
-  if (userError || !authUser?.user) {
+  // 2) pega user.id
+  const { data: userData, error: userError } = await supabaseClient.auth.getUser();
+  if (userError || !userData?.user) {
     console.error(userError);
-    setText(
-      "auth-status",
-      "Usuário criado no Auth, mas não foi possível obter o ID. Tente logar depois ou fale com o gestor."
-    );
+    setText("auth-status", "Usuário criado, mas não foi possível obter o ID.");
     return;
   }
 
-  const uid = authUser.user.id;
+  const uid = userData.user.id;
 
-  // 3) Insere na tabela usuarios com status PENDENTE
+  // 3) insere na tabela usuarios como PENDENTE (gestor aprova)
   const { error: perfilError } = await supabaseClient.from("usuarios").insert([
     {
       id: uid,
@@ -205,7 +213,7 @@ async function cadastrarNovoUsuario() {
       email,
       dt_nascimento: dtNasc || null,
       unidade,
-      tipo,
+      tipo: tipo.toUpperCase(),
       status: "PENDENTE",
     },
   ]);
@@ -214,21 +222,21 @@ async function cadastrarNovoUsuario() {
     console.error(perfilError);
     setText(
       "auth-status",
-      "Usuário criado no Auth, mas falhou ao salvar perfil: " + perfilError.message
+      "Usuário criado no Auth, mas falhou ao salvar perfil: " +
+        perfilError.message
     );
     return;
   }
 
   setText(
     "auth-status",
-    "Cadastro realizado com sucesso! Aguarde aprovação do gestor para poder acessar."
+    "Cadastro realizado! Aguarde o gestor aprovar seu acesso."
   );
-
   await supabaseClient.auth.signOut();
   currentSession = null;
-  currentUserProfile = null;
 }
 
+// Login
 async function login() {
   const email = byId("login-email").value.trim();
   const senha = byId("login-senha").value;
@@ -255,7 +263,7 @@ async function login() {
 
   await carregarPerfilUsuarioAtual();
   if (!currentUserProfile) {
-    // mensagem já foi setada em carregarPerfilUsuarioAtual
+    // carregarPerfilUsuarioAtual já tratou pendente etc
     return;
   }
 
@@ -263,57 +271,110 @@ async function login() {
   mostrarApp();
 }
 
+// Logout
 async function logout() {
   await supabaseClient.auth.signOut();
   currentSession = null;
   currentUserProfile = null;
   demandasCache = [];
+  usuariosCache = [];
   mostrarTelaAuth();
 }
 
-// =========================
+
+// ====================================
 // INTERFACE POR PERFIL
-// =========================
+// ====================================
+
 function ajustarInterfacePorPerfil() {
   if (!currentUserProfile) return;
   const tipo = (currentUserProfile.tipo || "").toUpperCase();
 
+  // Seções
   if (tipo === "PROGRAMADOR") {
     hide("sec-cadastro-demanda");
     show("sec-lista-demandas");
     show("sec-detalhes-demanda");
+    hide("sec-gestao-usuarios");
     hide("sec-painel-gestor");
-    hide("btn-graficos");
-    setText(
-      "ajuda-perfil",
-      "Perfil Programador: você visualiza apenas suas demandas e registra atualizações."
-    );
   } else if (tipo === "ATENDENTE") {
     show("sec-cadastro-demanda");
     show("sec-lista-demandas");
     show("sec-detalhes-demanda");
+    hide("sec-gestao-usuarios");
     hide("sec-painel-gestor");
-    show("btn-graficos");
-    setText(
-      "ajuda-perfil",
-      "Perfil Atendente: você cadastra, edita e acompanha demandas."
-    );
   } else if (tipo === "GESTOR") {
     show("sec-cadastro-demanda");
     show("sec-lista-demandas");
     show("sec-detalhes-demanda");
+    show("sec-gestao-usuarios");
     show("sec-painel-gestor");
-    show("btn-graficos");
-    setText(
-      "ajuda-perfil",
-      "Perfil Gestor: você acompanha a produção, gerencia usuários e demandas."
-    );
+  }
+
+  const ajuda = byId("ajuda-perfil");
+  if (ajuda) {
+    if (tipo === "PROGRAMADOR") {
+      ajuda.textContent =
+        "Perfil Programador: você vê apenas demandas encaminhadas para você ou onde é programador, e registra atualizações.";
+    } else if (tipo === "ATENDENTE") {
+      ajuda.textContent =
+        "Perfil Atendente: você cadastra, edita e exclui as demandas que você criou.";
+    } else if (tipo === "GESTOR") {
+      ajuda.textContent =
+        "Perfil Gestor: vê tudo, gerencia usuários, demandas, encaminhamentos e painel de produção.";
+    }
   }
 }
 
-// =========================
-// DEMANDAS
-// =========================
+
+// ====================================
+// USUÁRIOS (para preenchimento de “Encaminhar para”)
+// ====================================
+
+// Carrega apenas usuários ATIVOS
+async function carregarUsuariosAtivos() {
+  const { data, error } = await supabaseClient
+    .from("usuarios")
+    .select("*")
+    .eq("status", "ATIVO")
+    .order("nome", { ascending: true });
+
+  if (error) {
+    console.error("Erro ao carregar usuários:", error);
+    return;
+  }
+
+  usuariosCache = data || [];
+  popularSelectEncaminhar();
+}
+
+// Preenche o select de "Encaminhar para"
+function popularSelectEncaminhar() {
+  const sel = byId("dem-encaminhar");
+  if (!sel) return;
+
+  const valorAtual = sel.value || "";
+  sel.innerHTML = "";
+
+  const optVazio = document.createElement("option");
+  optVazio.value = "";
+  optVazio.textContent = "Não encaminhar";
+  sel.appendChild(optVazio);
+
+  usuariosCache.forEach((u) => {
+    const opt = document.createElement("option");
+    opt.value = u.nome;
+    opt.textContent = `${u.nome} (${u.tipo})`;
+    sel.appendChild(opt);
+  });
+
+  sel.value = valorAtual;
+}
+
+
+// ====================================
+// DEMANDAS – INSERT / UPDATE / DELETE
+// ====================================
 
 async function gerarCodigoDemanda() {
   const ano = new Date().getFullYear();
@@ -330,16 +391,22 @@ async function gerarCodigoDemanda() {
     console.error("Erro ao buscar último código:", error);
     return `${prefixo}-00001`;
   }
-  if (!data || data.length === 0) return `${prefixo}-00001`;
+
+  if (!data || data.length === 0) {
+    return `${prefixo}-00001`;
+  }
 
   const ultimo = data[0].codigo;
-  const partes = ultimo.split("-");
+  const partes = (ultimo || "").split("-");
   let num = 0;
-  if (partes.length > 1) num = parseInt(partes[1], 10) || 0;
+  if (partes.length > 1) {
+    num = parseInt(partes[1], 10) || 0;
+  }
   num++;
   return `${prefixo}-${String(num).padStart(5, "0")}`;
 }
 
+// Salvar demanda (novo ou edição)
 async function salvarDemanda(e) {
   e.preventDefault();
   if (!currentUserProfile) {
@@ -347,8 +414,9 @@ async function salvarDemanda(e) {
     return;
   }
 
-  const tipoUser = (currentUserProfile.tipo || "").toUpperCase();
-  if (tipoUser === "PROGRAMADOR") {
+  const tipoUsuario = (currentUserProfile.tipo || "").toUpperCase();
+
+  if (tipoUsuario === "PROGRAMADOR") {
     alert("Programador não pode cadastrar demandas.");
     return;
   }
@@ -365,16 +433,73 @@ async function salvarDemanda(e) {
   const statusDemanda = byId("dem-status").value;
   const linkTrello = byId("dem-link-trello").value.trim();
   const linkEmail = byId("dem-link-email").value.trim();
-  const atendente = currentUserProfile.nome;
+  const encaminharPara = byId("dem-encaminhar").value || ""; // nome do usuário
 
   if (!municipio || !assunto || !descricao) {
     alert("Preencha Município, Assunto e Descrição.");
     return;
   }
 
+  const agoraLocal = new Date().toLocaleString("pt-BR");
+
+  // MODO EDIÇÃO
+  if (demandaEmEdicaoId) {
+    const demandaOrig = demandasCache.find((d) => d.id === demandaEmEdicaoId);
+    if (!demandaOrig) {
+      alert("Demanda original não encontrada para edição.");
+      demandaEmEdicaoId = null;
+      return;
+    }
+
+    // Regras de quem pode editar:
+    // - Gestor pode editar qualquer
+    // - Atendente só edita se for o Atendente da demanda
+    if (tipoUsuario === "ATENDENTE" && demandaOrig.atendente !== currentUserProfile.nome) {
+      alert("Você só pode editar as demandas que você cadastrou.");
+      return;
+    }
+
+    setStatusBar("Atualizando demanda...");
+
+    const { error } = await supabaseClient
+      .from("demandas")
+      .update({
+        municipio,
+        tipo_entidade: tipoEntidade || null,
+        contato_cliente: contatoCliente || null,
+        estado: estado || null,
+        assunto,
+        descricao,
+        programador: programador || null,
+        forma_atendimento: formaAtendimento || null,
+        prioridade: prioridade || "MÉDIA",
+        status: statusDemanda || "ABERTA",
+        link_trello: linkTrello || null,
+        link_email: linkEmail || null,
+        encaminhar_para: encaminharPara || null,
+        // atendente NÃO muda aqui. Fica quem criou.
+      })
+      .eq("id", demandaEmEdicaoId);
+
+    if (error) {
+      console.error("Erro ao atualizar demanda:", error);
+      setStatusBar("Erro ao atualizar demanda: " + error.message);
+      alert("Erro ao atualizar demanda: " + error.message);
+      return;
+    }
+
+    setStatusBar("Demanda atualizada com sucesso.");
+    demandaEmEdicaoId = null;
+    byId("form-demanda").reset();
+    await carregarDemandas();
+    return;
+  }
+
+  // MODO NOVO REGISTRO
   setStatusBar("Gerando código da demanda...");
   const codigo = await gerarCodigoDemanda();
-  const agoraLocal = new Date().toLocaleString("pt-BR");
+
+  setStatusBar("Salvando demanda...");
 
   const { error } = await supabaseClient.from("demandas").insert([
     {
@@ -390,9 +515,10 @@ async function salvarDemanda(e) {
       forma_atendimento: formaAtendimento || null,
       prioridade: prioridade || "MÉDIA",
       status: statusDemanda || "ABERTA",
-      atendente,
+      atendente: currentUserProfile.nome,
       link_trello: linkTrello || null,
       link_email: linkEmail || null,
+      encaminhar_para: encaminharPara || null,
       data_hora_local: agoraLocal,
     },
   ]);
@@ -407,26 +533,133 @@ async function salvarDemanda(e) {
   byId("form-demanda").reset();
   setStatusBar("Demanda salva com sucesso!");
   await carregarDemandas();
-  await carregarQuadroAvisos();
 }
+
+// Excluir demanda
+async function excluirDemanda() {
+  if (!currentUserProfile) return;
+
+  const id = byId("det-demanda-id").value;
+  if (!id) {
+    alert("Nenhuma demanda selecionada.");
+    return;
+  }
+
+  const demanda = demandasCache.find((d) => d.id === id);
+  if (!demanda) {
+    alert("Demanda não encontrada.");
+    return;
+  }
+
+  const tipoUsuario = (currentUserProfile.tipo || "").toUpperCase();
+
+  if (tipoUsuario === "PROGRAMADOR") {
+    alert("Programador não pode excluir demanda.");
+    return;
+  }
+
+  if (tipoUsuario === "ATENDENTE" && demanda.atendente !== currentUserProfile.nome) {
+    alert("Você só pode excluir demandas que você cadastrou.");
+    return;
+  }
+
+  if (!confirm("Tem certeza que deseja excluir esta demanda?")) return;
+
+  const { error } = await supabaseClient.from("demandas").delete().eq("id", id);
+
+  if (error) {
+    console.error("Erro ao excluir demanda:", error);
+    alert("Erro ao excluir demanda: " + error.message);
+    return;
+  }
+
+  setStatusBar("Demanda excluída com sucesso.");
+  hide("sec-detalhes-demanda");
+  demandaEmEdicaoId = null;
+  await carregarDemandas();
+}
+
+// Inicia edição da demanda (preenche o formulário de cadastro)
+function iniciarEdicaoDemanda() {
+  if (!currentUserProfile) return;
+
+  const id = byId("det-demanda-id").value;
+  if (!id) {
+    alert("Nenhuma demanda selecionada.");
+    return;
+  }
+
+  const demanda = demandasCache.find((d) => d.id === id);
+  if (!demanda) {
+    alert("Demanda não encontrada.");
+    return;
+  }
+
+  const tipoUsuario = (currentUserProfile.tipo || "").toUpperCase();
+
+  if (tipoUsuario === "PROGRAMADOR") {
+    alert("Programador não pode editar demanda.");
+    return;
+  }
+
+  if (tipoUsuario === "ATENDENTE" && demanda.atendente !== currentUserProfile.nome) {
+    alert("Você só pode editar demandas que você cadastrou.");
+    return;
+  }
+
+  // Preenche formulário
+  byId("dem-municipio").value = demanda.municipio || "";
+  byId("dem-tipo-entidade").value = demanda.tipo_entidade || "";
+  byId("dem-contato-cliente").value = demanda.contato_cliente || "";
+  byId("dem-estado").value = demanda.estado || "";
+  byId("dem-assunto").value = demanda.assunto || "";
+  byId("dem-descricao").value = demanda.descricao || "";
+  byId("dem-programador").value = demanda.programador || "";
+  byId("dem-forma-atendimento").value = demanda.forma_atendimento || "";
+  byId("dem-prioridade").value = demanda.prioridade || "MÉDIA";
+  byId("dem-status").value = demanda.status || "ABERTA";
+  byId("dem-link-trello").value = demanda.link_trello || "";
+  byId("dem-link-email").value = demanda.link_email || "";
+  byId("dem-encaminhar").value = demanda.encaminhar_para || "";
+
+  demandaEmEdicaoId = demanda.id;
+
+  // Sobe a página para o formulário
+  const secCad = byId("sec-cadastro-demanda");
+  if (secCad) {
+    window.scrollTo({ top: secCad.offsetTop - 20, behavior: "smooth" });
+  }
+}
+
+
+// ====================================
+// CARREGAR / RENDERIZAR DEMANDAS
+// ====================================
 
 async function carregarDemandas() {
   if (!currentUserProfile) return;
+
   setStatusBar("Carregando demandas...");
 
-  const tipo = (currentUserProfile.tipo || "").toUpperCase();
-
+  const tipoUsuario = (currentUserProfile.tipo || "").toUpperCase();
   let query = supabaseClient.from("demandas").select("*").order("created_at", {
     ascending: false,
   });
 
-  if (tipo === "PROGRAMADOR") {
+  if (tipoUsuario === "PROGRAMADOR") {
+    // Programador vê apenas as demandas em que é programador ou está em encaminhar_para
     query = query.or(
       `programador.eq.${currentUserProfile.nome},encaminhar_para.eq.${currentUserProfile.nome}`
     );
+  } else if (tipoUsuario === "ATENDENTE") {
+    // Atendente vê apenas as demandas que ele cadastrou
+    query = query.eq("atendente", currentUserProfile.nome);
+  } else if (tipoUsuario === "GESTOR") {
+    // Gestor vê todas (sem filtro extra)
   }
 
   const { data, error } = await query;
+
   if (error) {
     console.error("Erro ao carregar demandas:", error);
     setStatusBar("Erro ao carregar demandas: " + error.message);
@@ -434,14 +667,68 @@ async function carregarDemandas() {
   }
 
   demandasCache = data || [];
-  atualizarFiltrosSugestoes();
+  atualizarFiltrosESugestoes();
   renderizarDemandas();
+
   setStatusBar("Pronto");
 }
 
+// Atualiza filtros de selects, chips etc
+function atualizarFiltrosESugestoes() {
+  const atendentes = new Set();
+  const programadores = new Set();
+  const municipios = new Set();
+  const estados = new Set();
+  const tiposEntidade = new Set();
+
+  demandasCache.forEach((d) => {
+    if (d.atendente) atendentes.add(d.atendente);
+    if (d.programador) programadores.add(d.programador);
+    if (d.municipio) municipios.add(d.municipio);
+    if (d.estado) estados.add(d.estado);
+    if (d.tipo_entidade) tiposEntidade.add(d.tipo_entidade);
+  });
+
+  popularSelectComSet("filtro-atendente", atendentes, "Atendente");
+  popularSelectComSet("filtro-programador", programadores, "Programador");
+  popularSelectComSet("filtro-municipio", municipios, "Município");
+  popularSelectComSet("filtro-estado", estados, "Estado");
+  popularSelectComSet("filtro-tipo-entidade", tiposEntidade, "Tipo Entidade");
+}
+
+function popularSelectComSet(selectId, conjunto, labelPadrao) {
+  const select = byId(selectId);
+  if (!select) return;
+
+  const valorAtual = select.value || "TODOS";
+  select.innerHTML = "";
+
+  const optTodos = document.createElement("option");
+  optTodos.value = "TODOS";
+  optTodos.textContent = `Todos (${labelPadrao})`;
+  select.appendChild(optTodos);
+
+  Array.from(conjunto)
+    .sort((a, b) => a.localeCompare(b, "pt-BR"))
+    .forEach((v) => {
+      const opt = document.createElement("option");
+      opt.value = v;
+      opt.textContent = v;
+      select.appendChild(opt);
+    });
+
+  if (Array.from(conjunto).includes(valorAtual)) {
+    select.value = valorAtual;
+  } else {
+    select.value = "TODOS";
+  }
+}
+
+// Aplica filtros e desenha tabela
 function renderizarDemandas() {
   const tbody = byId("tabela-demandas");
   if (!tbody) return;
+
   tbody.innerHTML = "";
 
   let lista = [...demandasCache];
@@ -451,28 +738,41 @@ function renderizarDemandas() {
       (d) => (d.status || "").toUpperCase() !== "CONCLUÍDA"
     );
   }
+
   if (filtrosAtuais.status !== "TODOS") {
     lista = lista.filter(
-      (d) => (d.status || "").toUpperCase() === filtrosAtuais.status.toUpperCase()
+      (d) => (d.status || "").toUpperCase() === filtrosAtuais.status
     );
   }
+
   if (filtrosAtuais.atendente !== "TODOS") {
-    lista = lista.filter((d) => (d.atendente || "") === filtrosAtuais.atendente);
+    lista = lista.filter(
+      (d) => (d.atendente || "") === filtrosAtuais.atendente
+    );
   }
+
   if (filtrosAtuais.programador !== "TODOS") {
-    lista = lista.filter((d) => (d.programador || "") === filtrosAtuais.programador);
+    lista = lista.filter(
+      (d) => (d.programador || "") === filtrosAtuais.programador
+    );
   }
+
   if (filtrosAtuais.municipio !== "TODOS") {
-    lista = lista.filter((d) => (d.municipio || "") === filtrosAtuais.municipio);
+    lista = lista.filter(
+      (d) => (d.municipio || "") === filtrosAtuais.municipio
+    );
   }
+
   if (filtrosAtuais.estado !== "TODOS") {
     lista = lista.filter((d) => (d.estado || "") === filtrosAtuais.estado);
   }
+
   if (filtrosAtuais.tipoEntidade !== "TODOS") {
     lista = lista.filter(
       (d) => (d.tipo_entidade || "") === filtrosAtuais.tipoEntidade
     );
   }
+
   if (filtrosAtuais.buscaTexto.trim() !== "") {
     const termo = filtrosAtuais.buscaTexto.toLowerCase();
     lista = lista.filter((d) => {
@@ -501,50 +801,91 @@ function renderizarDemandas() {
     tdAss.textContent = d.assunto || "";
     tr.appendChild(tdAss);
 
-    const tdStat = document.createElement("td");
-    tdStat.textContent = d.status || "";
-    tr.appendChild(tdStat);
+    const tdSt = document.createElement("td");
+    tdSt.textContent = d.status || "";
+    tr.appendChild(tdSt);
 
-    const tdPri = document.createElement("td");
-    tdPri.textContent = d.prioridade || "";
-    tr.appendChild(tdPri);
+    const tdPr = document.createElement("td");
+    tdPr.textContent = d.prioridade || "";
+    tr.appendChild(tdPr);
 
     tr.addEventListener("click", () => abrirDetalhesDemanda(d.id));
+
     tbody.appendChild(tr);
   });
 
   setText("total-demandas", `Total: ${lista.length}`);
 }
 
+
+// ====================================
+// DETALHES DA DEMANDA & ATUALIZAÇÕES
+// ====================================
+
 async function abrirDetalhesDemanda(id) {
-  const d = demandasCache.find((x) => x.id === id);
-  if (!d) return;
+  const demanda = demandasCache.find((d) => d.id === id);
+  if (!demanda) return;
 
-  byId("det-demanda-id").value = d.id || "";
-  setText("det-codigo", d.codigo || "-");
-  setText("det-municipio", d.municipio || "-");
-  setText("det-tipo-entidade", d.tipo_entidade || "-");
-  setText("det-contato-cliente", d.contato_cliente || "-");
-  setText("det-estado", d.estado || "-");
-  setText("det-assunto", d.assunto || "-");
-  setText("det-descricao", d.descricao || "-");
-  setText("det-programador", d.programador || "-");
-  setText("det-forma-atendimento", d.forma_atendimento || "-");
-  setText("det-prioridade", d.prioridade || "-");
-  setText("det-status", d.status || "-");
-  setText("det-atendente", d.atendente || "-");
-  setText("det-link-trello", d.link_trello || "-");
-  setText("det-link-email", d.link_email || "-");
-  setText("det-criado-em", formatarDataHoraBr(d.created_at));
+  byId("det-demanda-id").value = demanda.id;
+  setText("det-codigo", demanda.codigo || "-");
+  setText("det-municipio", demanda.municipio || "-");
+  setText("det-tipo-entidade", demanda.tipo_entidade || "-");
+  setText("det-contato-cliente", demanda.contato_cliente || "-");
+  setText("det-estado", demanda.estado || "-");
+  setText("det-assunto", demanda.assunto || "-");
+  setText("det-descricao", demanda.descricao || "-");
+  setText("det-programador", demanda.programador || "-");
+  setText("det-encaminhar", demanda.encaminhar_para || "-");
+  setText("det-forma-atendimento", demanda.forma_atendimento || "-");
+  setText("det-prioridade", demanda.prioridade || "-");
+  setText("det-status", demanda.status || "-");
+  setText("det-atendente", demanda.atendente || "-");
+  setText("det-link-trello", demanda.link_trello || "-");
+  setText("det-link-email", demanda.link_email || "-");
+  setText("det-criado-em", formatarDataHoraBr(demanda.created_at));
 
-  await carregarAtualizacoesDemanda(d.id);
+  mostrarBotoesEdicaoExclusao(demanda);
+  await carregarAtualizacoesDemanda(demanda.id);
+
+  show("sec-detalhes-demanda");
+}
+
+function mostrarBotoesEdicaoExclusao(demanda) {
+  if (!currentUserProfile) {
+    hide("btn-editar-demanda");
+    hide("btn-excluir-demanda");
+    return;
+  }
+
+  const tipoUsuario = (currentUserProfile.tipo || "").toUpperCase();
+
+  if (tipoUsuario === "PROGRAMADOR") {
+    hide("btn-editar-demanda");
+    hide("btn-excluir-demanda");
+    return;
+  }
+
+  if (tipoUsuario === "GESTOR") {
+    show("btn-editar-demanda");
+    show("btn-excluir-demanda");
+    return;
+  }
+
+  if (tipoUsuario === "ATENDENTE") {
+    if (demanda.atendente === currentUserProfile.nome) {
+      show("btn-editar-demanda");
+      show("btn-excluir-demanda");
+    } else {
+      hide("btn-editar-demanda");
+      hide("btn-excluir-demanda");
+    }
+  }
 }
 
 async function carregarAtualizacoesDemanda(demandaId) {
   const listaEl = byId("lista-atualizacoes");
   if (!listaEl) return;
-
-  listaEl.textContent = "Carregando atualizações...";
+  listaEl.innerHTML = "Carregando atualizações...";
 
   const { data, error } = await supabaseClient
     .from("atualizacoes_demanda")
@@ -568,9 +909,10 @@ async function carregarAtualizacoesDemanda(demandaId) {
     const li = document.createElement("li");
     li.classList.add("item-atualizacao");
     li.innerHTML = `
-      <div><strong>${a.usuario_nome || "Usuário"}</strong> – <span class="muted">${formatarDataHoraBr(
-      a.created_at
-    )}</span></div>
+      <div>
+        <strong>${a.usuario_nome || "Usuário"}</strong>
+        <span class="muted"> – ${formatarDataHoraBr(a.created_at)}</span>
+      </div>
       <div>${a.mensagem || ""}</div>
     `;
     listaEl.appendChild(li);
@@ -586,8 +928,9 @@ async function salvarAtualizacaoDemanda(e) {
 
   const demandaId = byId("det-demanda-id").value;
   const msg = byId("nova-atualizacao-texto").value.trim();
+
   if (!demandaId || !msg) {
-    alert("Selecione uma demanda e preencha a mensagem.");
+    alert("Escreva uma mensagem de atualização.");
     return;
   }
 
@@ -608,359 +951,111 @@ async function salvarAtualizacaoDemanda(e) {
 
   byId("nova-atualizacao-texto").value = "";
   await carregarAtualizacoesDemanda(demandaId);
-  await carregarQuadroAvisos();
 }
 
-// =========================
-// QUADRO DE AVISOS (últimas atualizações)
-// =========================
-async function carregarQuadroAvisos() {
-  const el = byId("quadro-avisos");
-  if (!el) return;
 
-  el.textContent = "Carregando avisos...";
+// ====================================
+// FILTROS – HANDLERS
+// ====================================
 
-  const { data, error } = await supabaseClient
-    .from("atualizacoes_demanda")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(10);
-
-  if (error) {
-    console.error("Erro ao carregar avisos:", error);
-    el.textContent = "Erro ao carregar avisos.";
-    return;
-  }
-
-  if (!data || data.length === 0) {
-    el.textContent = "Nenhuma atualização recente.";
-    return;
-  }
-
-  el.innerHTML = "";
-  data.forEach((a) => {
-    const div = document.createElement("div");
-    div.classList.add("aviso-item");
-    div.innerHTML = `
-      <div class="aviso-top">
-        <span class="aviso-usuario">${a.usuario_nome || "Usuário"}</span>
-        <span class="aviso-data">${formatarDataHoraBr(a.created_at)}</span>
-      </div>
-      <div class="aviso-msg">${a.mensagem || ""}</div>
-    `;
-    el.appendChild(div);
-  });
-}
-
-// =========================
-// FILTROS & SUGESTÕES
-// =========================
-function atualizarFiltrosSugestoes() {
-  const atendentes = new Set();
-  const programadores = new Set();
-  const municipios = new Set();
-  const estados = new Set();
-  const tiposEntidade = new Set();
-  const formasAtendimento = new Set();
-  const assuntos = new Set();
-  const contatos = new Set();
-
-  demandasCache.forEach((d) => {
-    if (d.atendente) atendentes.add(d.atendente);
-    if (d.programador) programadores.add(d.programador);
-    if (d.municipio) municipios.add(d.municipio);
-    if (d.estado) estados.add(d.estado);
-    if (d.tipo_entidade) tiposEntidade.add(d.tipo_entidade);
-    if (d.forma_atendimento) {
-      d.forma_atendimento
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .forEach((fa) => formasAtendimento.add(fa));
-    }
-    if (d.assunto) assuntos.add(d.assunto);
-    if (d.contato_cliente) contatos.add(d.contato_cliente);
-  });
-
-  popularSelectComSet("filtro-atendente", atendentes, "Atendente");
-  popularSelectComSet("filtro-programador", programadores, "Programador");
-  popularSelectComSet("filtro-municipio", municipios, "Município");
-  popularSelectComSet("filtro-estado", estados, "Estado");
-  popularSelectComSet("filtro-tipo-entidade", tiposEntidade, "Tipo Entidade");
-
-  renderizarSugestoesChips("sugs-programador", programadores, (v) => {
-    byId("dem-programador").value = v;
-  });
-  renderizarSugestoesChips("sugs-assunto", assuntos, (v) => {
-    byId("dem-assunto").value = v;
-  });
-  renderizarSugestoesChips("sugs-forma-atendimento", formasAtendimento, (v) => {
-    const campo = byId("dem-forma-atendimento");
-    if (!campo.value) campo.value = v;
-    else if (!campo.value.split(",").map((s) => s.trim()).includes(v)) {
-      campo.value = campo.value.trim() + ", " + v;
-    }
-  });
-  renderizarSugestoesChips("sugs-contato-cliente", contatos, (v) => {
-    byId("dem-contato-cliente").value = v;
-  });
-  renderizarSugestoesChips("sugs-municipio", municipios, (v) => {
-    byId("dem-municipio").value = v;
-  });
-  renderizarSugestoesChips("sugs-tipo-entidade", tiposEntidade, (v) => {
-    byId("dem-tipo-entidade").value = v;
-  });
-}
-
-function popularSelectComSet(id, setValores, label) {
-  const sel = byId(id);
-  if (!sel) return;
-
-  const atual = sel.value || "TODOS";
-
-  sel.innerHTML = "";
-  const opt = document.createElement("option");
-  opt.value = "TODOS";
-  opt.textContent = `Todos (${label})`;
-  sel.appendChild(opt);
-
-  Array.from(setValores)
-    .sort((a, b) => a.localeCompare(b, "pt-BR"))
-    .forEach((v) => {
-      const o = document.createElement("option");
-      o.value = v;
-      o.textContent = v;
-      sel.appendChild(o);
-    });
-
-  sel.value = atual && Array.from(setValores).includes(atual) ? atual : "TODOS";
-}
-
-function renderizarSugestoesChips(id, setValores, onClickValor) {
-  const cont = byId(id);
-  if (!cont) return;
-
-  cont.innerHTML = "";
-  if (setValores.size === 0) {
-    cont.innerHTML = `<span class="muted">Sem sugestões ainda.</span>`;
-    return;
-  }
-
-  Array.from(setValores)
-    .sort((a, b) => a.localeCompare(b, "pt-BR"))
-    .forEach((v) => {
-      const span = document.createElement("span");
-      span.classList.add("chip-sugestao");
-      span.textContent = v;
-      span.addEventListener("click", () => onClickValor(v));
-      cont.appendChild(span);
-    });
-}
-
-// handlers filtros
 function onFiltroStatusChange() {
-  filtrosAtuais.status = byId("filtro-status").value;
+  const sel = byId("filtro-status");
+  filtrosAtuais.status = sel ? sel.value : "TODOS";
   renderizarDemandas();
 }
+
 function onFiltroAtendenteChange() {
-  filtrosAtuais.atendente = byId("filtro-atendente").value;
+  const sel = byId("filtro-atendente");
+  filtrosAtuais.atendente = sel ? sel.value : "TODOS";
   renderizarDemandas();
 }
+
 function onFiltroProgramadorChange() {
-  filtrosAtuais.programador = byId("filtro-programador").value;
+  const sel = byId("filtro-programador");
+  filtrosAtuais.programador = sel ? sel.value : "TODOS";
   renderizarDemandas();
 }
+
 function onFiltroMunicipioChange() {
-  filtrosAtuais.municipio = byId("filtro-municipio").value;
+  const sel = byId("filtro-municipio");
+  filtrosAtuais.municipio = sel ? sel.value : "TODOS";
   renderizarDemandas();
 }
+
 function onFiltroEstadoChange() {
-  filtrosAtuais.estado = byId("filtro-estado").value;
+  const sel = byId("filtro-estado");
+  filtrosAtuais.estado = sel ? sel.value : "TODOS";
   renderizarDemandas();
 }
+
 function onFiltroTipoEntidadeChange() {
-  filtrosAtuais.tipoEntidade = byId("filtro-tipo-entidade").value;
+  const sel = byId("filtro-tipo-entidade");
+  filtrosAtuais.tipoEntidade = sel ? sel.value : "TODOS";
   renderizarDemandas();
 }
+
 function onFiltroOcultarConcluidasChange() {
-  filtrosAtuais.ocultarConcluidas = byId("filtro-ocultar-concluidas").checked;
+  const chk = byId("filtro-ocultar-concluidas");
+  filtrosAtuais.ocultarConcluidas = !!(chk && chk.checked);
   renderizarDemandas();
 }
+
 function onBuscaTextoKeyup() {
-  filtrosAtuais.buscaTexto = byId("filtro-busca").value;
+  const inp = byId("filtro-busca");
+  filtrosAtuais.buscaTexto = inp ? inp.value : "";
   renderizarDemandas();
 }
 
-// =========================
-// GESTOR - GESTÃO DE USUÁRIOS
-// =========================
-async function carregarUsuariosGestor() {
-  if (!currentUserProfile) return;
-  const tipo = (currentUserProfile.tipo || "").toUpperCase();
-  if (tipo !== "GESTOR") {
-    hide("sec-painel-gestor");
-    return;
-  }
 
-  show("sec-painel-gestor");
-  const tbody = byId("tabela-usuarios-gestor");
-  const texto = byId("texto-gestor-usuarios");
-  if (!tbody) return;
+// ====================================
+// PAINEL GESTOR / GRÁFICOS (GANCHO)
+// ====================================
 
-  tbody.innerHTML = "<tr><td colspan='6'>Carregando...</td></tr>";
-  texto.textContent = "";
-
-  const { data, error } = await supabaseClient
-    .from("usuarios")
-    .select("*")
-    .order("nome", { ascending: true });
-
-  if (error) {
-    console.error("Erro ao carregar usuários:", error);
-    tbody.innerHTML =
-      "<tr><td colspan='6'>Erro ao carregar usuários.</td></tr>";
-    return;
-  }
-
-  if (!data || data.length === 0) {
-    tbody.innerHTML = "<tr><td colspan='6'>Nenhum usuário cadastrado.</td></tr>";
-    return;
-  }
-
-  tbody.innerHTML = "";
-  data.forEach((u) => {
-    const tr = document.createElement("tr");
-
-    const tdNome = document.createElement("td");
-    const inpNome = document.createElement("input");
-    inpNome.type = "text";
-    inpNome.value = u.nome || "";
-    inpNome.classList.add("input-tabela");
-    inpNome.dataset.id = u.id;
-    inpNome.dataset.campo = "nome";
-    tdNome.appendChild(inpNome);
-    tr.appendChild(tdNome);
-
-    const tdEmail = document.createElement("td");
-    const inpEmail = document.createElement("input");
-    inpEmail.type = "email";
-    inpEmail.value = u.email || "";
-    inpEmail.classList.add("input-tabela");
-    inpEmail.dataset.id = u.id;
-    inpEmail.dataset.campo = "email";
-    tdEmail.appendChild(inpEmail);
-    tr.appendChild(tdEmail);
-
-    const tdUnid = document.createElement("td");
-    const inpUnid = document.createElement("input");
-    inpUnid.type = "text";
-    inpUnid.value = u.unidade || "";
-    inpUnid.classList.add("input-tabela");
-    inpUnid.dataset.id = u.id;
-    inpUnid.dataset.campo = "unidade";
-    tdUnid.appendChild(inpUnid);
-    tr.appendChild(tdUnid);
-
-    const tdTipo = document.createElement("td");
-    const selTipo = document.createElement("select");
-    ["PROGRAMADOR", "ATENDENTE", "GESTOR"].forEach((t) => {
-      const opt = document.createElement("option");
-      opt.value = t;
-      opt.textContent = t;
-      if ((u.tipo || "").toUpperCase() === t) opt.selected = true;
-      selTipo.appendChild(opt);
-    });
-    selTipo.dataset.id = u.id;
-    selTipo.dataset.campo = "tipo";
-    selTipo.classList.add("input-tabela");
-    tdTipo.appendChild(selTipo);
-    tr.appendChild(tdTipo);
-
-    const tdStatus = document.createElement("td");
-    const selStatus = document.createElement("select");
-    ["PENDENTE", "ATIVO", "INATIVO"].forEach((s) => {
-      const opt = document.createElement("option");
-      opt.value = s;
-      opt.textContent = s;
-      if ((u.status || "").toUpperCase() === s) opt.selected = true;
-      selStatus.appendChild(opt);
-    });
-    selStatus.dataset.id = u.id;
-    selStatus.dataset.campo = "status";
-    selStatus.classList.add("input-tabela");
-    tdStatus.appendChild(selStatus);
-    tr.appendChild(tdStatus);
-
-    const tdAcoes = document.createElement("td");
-    const btnSalvar = document.createElement("button");
-    btnSalvar.textContent = "Salvar";
-    btnSalvar.classList.add("btn", "btn-primary", "btn-sm");
-    btnSalvar.addEventListener("click", () => salvarUsuarioLinha(u.id, tr));
-
-    tdAcoes.appendChild(btnSalvar);
-    tr.appendChild(tdAcoes);
-
-    tbody.appendChild(tr);
-  });
-
-  texto.textContent =
-    "Apenas o gestor pode aprovar (status ATIVO), inativar e editar nome/email.";
+async function carregarPainelGestor() {
+  // aqui você puxa dados agregados pra métricas e gráficos
+  // usando demandasCache ou queries específicas
 }
 
-async function salvarUsuarioLinha(id, tr) {
-  if (!currentUserProfile) return;
-  const tipo = (currentUserProfile.tipo || "").toUpperCase();
-  if (tipo !== "GESTOR") {
-    alert("Apenas gestor pode editar usuários.");
-    return;
-  }
 
-  const inputs = tr.querySelectorAll(".input-tabela");
-  const update = {};
-  inputs.forEach((inp) => {
-    const campo = inp.dataset.campo;
-    if (!campo) return;
-    update[campo] = inp.value;
-  });
-
-  const { error } = await supabaseClient
-    .from("usuarios")
-    .update(update)
-    .eq("id", id);
-
-  if (error) {
-    console.error("Erro ao salvar usuário:", error);
-    alert("Erro ao salvar usuário: " + error.message);
-    return;
-  }
-
-  alert("Usuário atualizado com sucesso!");
-}
-
-// =========================
+// ====================================
 // LISTENERS
-// =========================
-function registrarListeners() {
-  const btnCad = byId("btn-cadastrar");
-  if (btnCad) btnCad.addEventListener("click", cadastrarNovoUsuario);
+// ====================================
 
+function registrarListeners() {
+  // Auth
   const btnLogin = byId("btn-login");
   if (btnLogin) btnLogin.addEventListener("click", login);
+
+  const btnCadastrar = byId("btn-cadastrar");
+  if (btnCadastrar) btnCadastrar.addEventListener("click", cadastrarNovoUsuario);
 
   const btnLogout = byId("btn-logout");
   if (btnLogout) btnLogout.addEventListener("click", logout);
 
-  const formDem = byId("form-demanda");
-  if (formDem) formDem.addEventListener("submit", salvarDemanda);
+  // Form demanda
+  const formDemanda = byId("form-demanda");
+  if (formDemanda) formDemanda.addEventListener("submit", salvarDemanda);
 
-  const formAt = byId("form-atualizacao-demanda");
-  if (formAt) formAt.addEventListener("submit", salvarAtualizacaoDemanda);
+  // Form atualização
+  const formAtualizacao = byId("form-atualizacao-demanda");
+  if (formAtualizacao)
+    formAtualizacao.addEventListener("submit", salvarAtualizacaoDemanda);
 
+  // Botões editar/excluir na área de detalhes
+  const btnEditarDemanda = byId("btn-editar-demanda");
+  if (btnEditarDemanda)
+    btnEditarDemanda.addEventListener("click", iniciarEdicaoDemanda);
+
+  const btnExcluirDemanda = byId("btn-excluir-demanda");
+  if (btnExcluirDemanda)
+    btnExcluirDemanda.addEventListener("click", excluirDemanda);
+
+  // Filtros
   const selStatus = byId("filtro-status");
   if (selStatus) selStatus.addEventListener("change", onFiltroStatusChange);
 
-  const selAt = byId("filtro-atendente");
-  if (selAt) selAt.addEventListener("change", onFiltroAtendenteChange);
+  const selAtendente = byId("filtro-atendente");
+  if (selAtendente) selAtendente.addEventListener("change", onFiltroAtendenteChange);
 
   const selProg = byId("filtro-programador");
   if (selProg) selProg.addEventListener("change", onFiltroProgramadorChange);
@@ -975,24 +1070,24 @@ function registrarListeners() {
   if (selTipoEnt)
     selTipoEnt.addEventListener("change", onFiltroTipoEntidadeChange);
 
-  const chkConc = byId("filtro-ocultar-concluidas");
-  if (chkConc)
-    chkConc.addEventListener("change", onFiltroOcultarConcluidasChange);
+  const chkOcultar = byId("filtro-ocultar-concluidas");
+  if (chkOcultar)
+    chkOcultar.addEventListener("change", onFiltroOcultarConcluidasChange);
 
   const inpBusca = byId("filtro-busca");
   if (inpBusca) inpBusca.addEventListener("keyup", onBuscaTextoKeyup);
 
-  const btnGraf = byId("btn-graficos");
-  if (btnGraf) {
-    btnGraf.addEventListener("click", () => {
-      alert(
-        "Aqui entra a tela de gráficos (total por município, atendente, tipo de entidade)."
-      );
+  const btnGraficos = byId("btn-graficos");
+  if (btnGraficos) {
+    btnGraficos.addEventListener("click", () => {
+      alert("Aqui você pode abrir a tela de gráficos com Chart.js, usando demandasCache.");
     });
   }
 }
 
-// =========================
+
+// ====================================
 // BOOT
-// =========================
+// ====================================
+
 window.addEventListener("load", inicializarApp);
