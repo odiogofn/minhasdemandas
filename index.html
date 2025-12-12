@@ -12,11 +12,9 @@
   <!-- TELA DE LOGIN / CADASTRO -->
   <div id="auth-container" class="auth-card">
     <h1>Sistema de Demandas</h1>
-
     <div class="auth-columns">
       <div class="auth-box">
         <h2>Entrar</h2>
-
         <label for="login-email">Email</label>
         <input type="email" id="login-email" />
 
@@ -29,7 +27,6 @@
 
       <div class="auth-box">
         <h2>Novo Cadastro</h2>
-
         <label for="cad-nome">Nome</label>
         <input type="text" id="cad-nome" />
 
@@ -72,7 +69,6 @@
         <button id="btn-cadastrar" class="btn secondary" type="button">Cadastrar Usuário</button>
       </div>
     </div>
-
     <p id="auth-status" class="status-text"></p>
   </div>
 
@@ -83,22 +79,20 @@
         <span class="logo">Sistema de Demandas</span>
         <span id="ajuda-perfil" class="perfil-hint"></span>
       </div>
-
       <div class="topbar-right">
         <span id="user-label" class="user-label"></span>
         <span class="badge ok">Supabase conectado</span>
+        <button id="btn-graficos" class="btn ghost" type="button">Gráficos</button>
         <button id="btn-logout" class="btn danger" type="button">Sair</button>
       </div>
     </header>
 
     <main class="layout">
-      <!-- CADASTRO -->
       <section class="panel" id="sec-cadastro-demanda">
         <div class="panel-header">
           <h2>Cadastro de Demanda</h2>
           <span class="status-bar" id="status-bar">Pronto</span>
         </div>
-
         <form id="form-demanda" class="form-grid">
           <div class="row">
             <div class="col">
@@ -195,7 +189,6 @@
         </form>
       </section>
 
-      <!-- LISTA -->
       <section class="panel" id="sec-lista-demandas">
         <div class="panel-header">
           <h2>Demandas</h2>
@@ -236,15 +229,16 @@
             <tbody id="tabela-demandas"></tbody>
           </table>
         </div>
-
         <p id="total-demandas" class="status-text"></p>
       </section>
 
-      <!-- PAINEL GESTOR -->
       <section class="panel wide" id="sec-painel-gestor">
         <div class="panel-header">
           <h2>Painel do Gestor – Usuários</h2>
         </div>
+        <p class="hint">
+          Aqui o gestor aprova cadastros, altera tipo/unidade, inativa ou edita nome/email.
+        </p>
         <div class="table-wrapper">
           <table>
             <thead>
@@ -264,9 +258,8 @@
     </main>
   </div>
 
-  <!-- MODAL DETALHES -->
+  <!-- MODAL DE DETALHES -->
   <div id="modal-overlay" class="modal-overlay hidden"></div>
-
   <div id="modal-detalhes" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
     <div class="modal-header">
       <div>
@@ -301,7 +294,7 @@
         </div>
       </div>
 
-      <div class="modal-section">
+      <div class="modal-section" id="sec-acoes-demanda">
         <h3>Ações</h3>
         <div class="acoes-grid">
           <div class="acao-card" id="card-encaminhar">
@@ -309,6 +302,7 @@
             <label for="sel-encaminhar-usuario">Encaminhar para</label>
             <select id="sel-encaminhar-usuario"></select>
             <button id="btn-encaminhar" class="btn primary" type="button">Encaminhar</button>
+            <p class="hint">Isso atualiza Programador e Encaminhar Para e muda status para ENCAMINHADA.</p>
           </div>
 
           <div class="acao-card" id="card-editar">
@@ -332,6 +326,7 @@
         <form id="form-atualizacao-demanda" class="form-atualizacao">
           <textarea id="nova-atualizacao-texto" placeholder="Registrar novo andamento..."></textarea>
           <button type="submit" class="btn primary">Adicionar atualização</button>
+          <p class="hint">A atualização sempre registra o nome do usuário logado.</p>
         </form>
       </div>
     </div>

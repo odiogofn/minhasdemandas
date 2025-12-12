@@ -9,7 +9,10 @@ let currentUserProfile = null;
 let currentSession = null;
 
 let demandasCache = [];
-let usuariosCache = [];
+
+// ✅ separados (pra não “sumir” usuário do gestor)
+let usuariosAtivosCache = [];   // usado pra encaminhar/sugestões (id,nome,tipo,status)
+let usuariosGestorCache = [];   // usado na tabela do gestor (select *)
 
 let filtrosAtuais = {
   buscaTexto: "",
@@ -22,6 +25,9 @@ let filtrosAtuais = {
   tipoEntidade: "TODOS",
 };
 
+// =========================
+// UTILITÁRIOS
+// =========================
 function byId(id){ return document.getElementById(id); }
 function setText(id, text){ const el = byId(id); if(el) el.textContent = text; }
 function show(id){ const el = byId(id); if(el) el.classList.remove("hidden"); }
@@ -44,7 +50,7 @@ function ehProgramador(){ return currentUserProfile && currentUserProfile.tipo =
 
 function setStatusBar(texto){ setText("status-bar", texto); }
 
-// 🔐 PERMISSÕES
+// Permissões de demanda:
 function podeEditarOuExcluir(d){
   if(!currentUserProfile || !d) return false;
   if(ehGestor()) return true;
@@ -59,18 +65,22 @@ function podeEncaminhar(d){
 }
 
 // =========================
-// INIT
+// AUTH
 // =========================
 async function inicializarApp(){
   registrarListeners();
 
-  const { data } = await supabaseClient.auth.getSession();
+  const { data, error } = await supabaseClient.auth.getSession();
+  if(error) console.error("Erro ao obter sessão:", error);
   currentSession = data?.session || null;
 
   if(currentSession){
     await carregarPerfilUsuarioAtual();
-    if(currentUserProfile) mostrarApp();
-    else mostrarTelaAuth();
+    if(currentUserProfile){
+      mostrarApp();
+    } else {
+      mostrarTelaAuth();
+    }
   } else {
     mostrarTelaAuth();
   }
@@ -80,6 +90,22 @@ function mostrarTelaAuth(){
   show("auth-container");
   hide("app-container");
   setText("auth-status", "Informe seus dados para entrar ou se cadastrar.");
+}
+
+function mostrarApp(){
+  hide("auth-container");
+  show("app-container");
+
+  setText("user-label", `${currentUserProfile.nome} (${currentUserProfile.tipo} · ${currentUserProfile.unidade || "-"})`);
+  ajustarInterfacePorPerfil();
+
+  // ✅ carregar caches sem conflitar
+  carregarUsuariosAtivosParaEncaminhar();
+  carregarDemandas();
+
+  if(ehGestor()){
+    carregarUsuariosGestor(); // ✅ agora sempre renderiza no painel do gestor
+  }
 }
 
 function ajustarInterfacePorPerfil(){
@@ -99,29 +125,15 @@ function ajustarInterfacePorPerfil(){
   }
 }
 
-function mostrarApp(){
-  hide("auth-container");
-  show("app-container");
-
-  setText("user-label", `${currentUserProfile.nome} (${currentUserProfile.tipo} · ${currentUserProfile.unidade || "-"})`);
-  ajustarInterfacePorPerfil();
-
-  carregarUsuariosParaEncaminhar();
-  carregarDemandas();
-}
-
-// =========================
-// PERFIL / LOGIN
-// =========================
 async function carregarPerfilUsuarioAtual(){
   const { data: userData, error: userError } = await supabaseClient.auth.getUser();
   if(userError || !userData?.user){
+    console.error("Erro ao obter usuário:", userError);
     currentUserProfile = null;
     return;
   }
 
   const uid = userData.user.id;
-
   const { data: perfil, error: perfilError } = await supabaseClient
     .from("usuarios")
     .select("*")
@@ -129,8 +141,9 @@ async function carregarPerfilUsuarioAtual(){
     .single();
 
   if(perfilError){
+    console.error("Erro ao obter perfil:", perfilError);
     currentUserProfile = null;
-    setText("auth-status", "Erro ao obter perfil: " + perfilError.message);
+    setText("auth-status", "Erro ao obter perfil. Verifique se o usuário existe na tabela usuarios.");
     return;
   }
 
@@ -172,12 +185,14 @@ async function cadastrarNovoUsuario(){
 
   const { error: signError } = await supabaseClient.auth.signUp({ email, password: senha });
   if(signError){
+    console.error("Erro signUp:", signError);
     setText("auth-status", "Erro ao criar usuário: " + signError.message);
     return;
   }
 
   const { data: userData, error: userError } = await supabaseClient.auth.getUser();
   if(userError || !userData?.user){
+    console.error("Erro getUser:", userError);
     setText("auth-status", "Usuário criado, mas não foi possível obter o ID.");
     return;
   }
@@ -195,6 +210,7 @@ async function cadastrarNovoUsuario(){
   }]);
 
   if(perfilError){
+    console.error("Erro ao salvar perfil:", perfilError);
     setText("auth-status", "Usuário criado no Auth, mas falhou ao salvar perfil: " + perfilError.message);
     return;
   }
@@ -216,6 +232,7 @@ async function login(){
 
   const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: senha });
   if(error){
+    console.error("Erro ao autenticar:", error);
     setText("auth-status", "Erro ao autenticar: " + error.message);
     return;
   }
@@ -233,24 +250,29 @@ async function logout(){
   currentSession = null;
   currentUserProfile = null;
   demandasCache = [];
-  usuariosCache = [];
+  usuariosAtivosCache = [];
+  usuariosGestorCache = [];
   mostrarTelaAuth();
 }
 
 // =========================
-// DEMANDAS
+// DEMANDAS (CRUD)
 // =========================
 async function gerarCodigoDemanda(){
   const ano = new Date().getFullYear();
   const prefixo = "D" + ano;
 
-  const { data } = await supabaseClient
+  const { data, error } = await supabaseClient
     .from("demandas")
     .select("codigo")
     .like("codigo", `${prefixo}-%`)
     .order("codigo", { ascending: false })
     .limit(1);
 
+  if(error){
+    console.error("Erro ao buscar último código:", error);
+    return `${prefixo}-00001`;
+  }
   if(!data || data.length === 0) return `${prefixo}-00001`;
 
   const ultimo = data[0].codigo || "";
@@ -263,7 +285,6 @@ async function gerarCodigoDemanda(){
 
 async function salvarDemanda(e){
   e.preventDefault();
-
   if(!currentUserProfile){
     alert("Faça login antes de cadastrar demanda.");
     return;
@@ -291,7 +312,10 @@ async function salvarDemanda(e){
     return;
   }
 
+  const atendente = currentUserProfile.nome;
+  const agoraLocal = new Date().toLocaleString("pt-BR");
   const codigo = await gerarCodigoDemanda();
+
   setStatusBar("Salvando demanda...");
 
   const payload = {
@@ -308,15 +332,17 @@ async function salvarDemanda(e){
     forma_atendimento: formaAtendimento || null,
     prioridade: prioridade || "MÉDIA",
     status: statusDemanda || "ABERTA",
-    atendente: currentUserProfile.nome,
+    atendente,
     link_trello: linkTrello || null,
     link_email: linkEmail || null,
-    data_hora_local: new Date().toLocaleString("pt-BR"),
+    data_hora_local: agoraLocal,
   };
 
   const { error } = await supabaseClient.from("demandas").insert([payload]);
+
   if(error){
-    setStatusBar("Erro ao salvar: " + error.message);
+    console.error("Erro ao salvar demanda:", error);
+    setStatusBar("Erro ao salvar demanda: " + error.message);
     alert("Erro ao salvar demanda: " + error.message);
     return;
   }
@@ -328,19 +354,18 @@ async function salvarDemanda(e){
 
 async function carregarDemandas(){
   if(!currentUserProfile) return;
-
   setStatusBar("Carregando demandas...");
 
   let q = supabaseClient.from("demandas").select("*").order("created_at", { ascending:false });
 
-  // ✅ visibilidade: programador vê só as dele + gestor vê tudo + atendente vê tudo
   if(ehProgramador()){
     q = q.or(`programador.eq.${currentUserProfile.nome},encaminhar_para.eq.${currentUserProfile.nome}`);
   }
 
   const { data, error } = await q;
   if(error){
-    setStatusBar("Erro ao carregar: " + error.message);
+    console.error("Erro ao carregar demandas:", error);
+    setStatusBar("Erro ao carregar demandas: " + error.message);
     return;
   }
 
@@ -359,6 +384,7 @@ function renderizarDemandas(){
   if(filtrosAtuais.ocultarConcluidas){
     lista = lista.filter(d => (d.status || "").toUpperCase() !== "CONCLUÍDA");
   }
+
   if(filtrosAtuais.status !== "TODOS"){
     lista = lista.filter(d => (d.status || "").toUpperCase() === filtrosAtuais.status.toUpperCase());
   }
@@ -378,8 +404,8 @@ function renderizarDemandas(){
     lista = lista.filter(d => (d.tipo_entidade || "") === filtrosAtuais.tipoEntidade);
   }
 
-  const termo = filtrosAtuais.buscaTexto.trim().toLowerCase();
-  if(termo){
+  if(filtrosAtuais.buscaTexto.trim() !== ""){
+    const termo = filtrosAtuais.buscaTexto.toLowerCase();
     lista = lista.filter(d =>
       (d.descricao || "").toLowerCase().includes(termo) ||
       (d.assunto || "").toLowerCase().includes(termo) ||
@@ -398,16 +424,16 @@ function renderizarDemandas(){
       <td>${d.prioridade || ""}</td>
       <td>
         <div class="row-actions">
-          <button class="btn-mini" data-action="detalhes">Detalhes</button>
-          <button class="btn-mini" data-action="editar">Editar</button>
-          <button class="btn-mini" data-action="excluir">Excluir</button>
+          <button class="btn-mini" data-action="detalhes" data-id="${d.id}">Detalhes</button>
+          <button class="btn-mini" data-action="editar" data-id="${d.id}">Editar</button>
+          <button class="btn-mini" data-action="excluir" data-id="${d.id}">Excluir</button>
         </div>
       </td>
     `;
 
-    // clique na linha => abre modal
     tr.addEventListener("click", (ev) => {
-      if(ev.target.closest("button")) return;
+      const btn = ev.target.closest("button");
+      if(btn) return;
       abrirModalDemanda(d.id);
     });
 
@@ -426,7 +452,6 @@ function renderizarDemandas(){
       await excluirDemanda(d.id);
     });
 
-    // ✅ se não pode, desabilita
     if(!podeEditarOuExcluir(d)){
       tr.querySelector('[data-action="editar"]').disabled = true;
       tr.querySelector('[data-action="excluir"]').disabled = true;
@@ -441,17 +466,17 @@ function renderizarDemandas(){
 async function excluirDemanda(demandaId){
   const d = demandasCache.find(x => x.id === demandaId);
   if(!d) return;
-
   if(!podeEditarOuExcluir(d)){
     alert("Você não tem permissão para excluir esta demanda.");
     return;
   }
-
-  if(!confirm(`Excluir a demanda ${d.codigo}?`)) return;
+  const ok = confirm(`Excluir a demanda ${d.codigo}? (ação permanente)`);
+  if(!ok) return;
 
   const { error } = await supabaseClient.from("demandas").delete().eq("id", demandaId);
   if(error){
-    alert("Erro ao excluir: " + error.message);
+    console.error("Erro ao excluir demanda:", error);
+    alert("Erro ao excluir demanda: " + error.message);
     return;
   }
   await carregarDemandas();
@@ -460,42 +485,44 @@ async function excluirDemanda(demandaId){
 async function editarDemanda(demandaId){
   const d = demandasCache.find(x => x.id === demandaId);
   if(!d) return;
-
   if(!podeEditarOuExcluir(d)){
     alert("Você não tem permissão para editar esta demanda.");
     return;
   }
 
-  // (rápido) via prompt — se quiser eu transformo em formulário no modal
   const municipio = prompt("Município:", d.municipio || "");
   if(municipio === null) return;
-
   const assunto = prompt("Assunto:", d.assunto || "");
   if(assunto === null) return;
-
   const descricao = prompt("Descrição:", d.descricao || "");
   if(descricao === null) return;
 
-  const status = prompt("Status:", d.status || "");
+  const status = prompt("Status (ABERTA, EM ANÁLISE, NA PROGRAMAÇÃO, ENCAMINHADA, CONCLUÍDA):", d.status || "");
   if(status === null) return;
+
+  const prioridade = prompt("Prioridade (BAIXA, MÉDIA, ALTA, URGENTE):", d.prioridade || "");
+  if(prioridade === null) return;
 
   const payload = {
     municipio: municipio.trim().toUpperCase(),
     assunto: assunto.trim().toUpperCase(),
     descricao: descricao.trim(),
     status: status.trim().toUpperCase(),
+    prioridade: prioridade.trim().toUpperCase()
   };
 
   const { error } = await supabaseClient.from("demandas").update(payload).eq("id", demandaId);
   if(error){
-    alert("Erro ao editar: " + error.message);
+    console.error("Erro ao editar demanda:", error);
+    alert("Erro ao editar demanda: " + error.message);
     return;
   }
+
   await carregarDemandas();
 }
 
 // =========================
-// MODAL
+// MODAL (DETALHES + ENCAMINHAR + ATUALIZAÇÕES)
 // =========================
 function abrirModal(){
   show("modal-overlay");
@@ -511,7 +538,6 @@ async function abrirModalDemanda(demandaId){
   if(!d) return;
 
   byId("det-demanda-id").value = d.id;
-
   setText("modal-titulo", `Demanda ${d.codigo || ""}`);
   setText("modal-subtitulo", `${d.municipio || "-"} · ${d.assunto || "-"}`);
 
@@ -532,7 +558,6 @@ async function abrirModalDemanda(demandaId){
   setText("det-link-email", d.link_email || "-");
   setText("det-criado-em", formatarDataHoraBr(d.created_at));
 
-  // ✅ encaminhar: gestor OU atendente criador
   if(podeEncaminhar(d)){
     show("card-encaminhar");
     await popularSelectEncaminhar(d);
@@ -540,7 +565,6 @@ async function abrirModalDemanda(demandaId){
     hide("card-encaminhar");
   }
 
-  // ✅ editar/excluir dentro do modal
   if(podeEditarOuExcluir(d)){
     show("card-editar");
     show("card-excluir");
@@ -549,7 +573,7 @@ async function abrirModalDemanda(demandaId){
     hide("card-excluir");
   }
 
-  byId("btn-encaminhar").onclick = () => encaminharDemanda(d.id);
+  byId("btn-encaminhar").onclick = async () => { await encaminharDemanda(d.id); };
   byId("btn-editar-demanda").onclick = async () => { await editarDemanda(d.id); await abrirModalDemanda(d.id); };
   byId("btn-excluir-demanda").onclick = async () => { await excluirDemanda(d.id); fecharModal(); };
 
@@ -561,7 +585,9 @@ async function popularSelectEncaminhar(d){
   const sel = byId("sel-encaminhar-usuario");
   sel.innerHTML = "";
 
-  const ativos = usuariosCache.filter(u => (u.status || "").toUpperCase() === "ATIVO");
+  // ✅ gestor usa cache completo (se existir), senão usa cache de ativos
+  const base = (ehGestor() && usuariosGestorCache.length) ? usuariosGestorCache : usuariosAtivosCache;
+  const ativos = base.filter(u => (u.status || "").toUpperCase() === "ATIVO");
 
   const opt0 = document.createElement("option");
   opt0.value = "";
@@ -578,15 +604,17 @@ async function popularSelectEncaminhar(d){
     });
 
   const atual = d.encaminhar_para || d.programador || "";
-  if(atual && ativos.some(u => u.nome === atual)) sel.value = atual;
+  if(atual){
+    const found = ativos.find(u => u.nome === atual);
+    if(found) sel.value = atual;
+  }
 }
 
 async function encaminharDemanda(demandaId){
   const d = demandasCache.find(x => x.id === demandaId);
   if(!d) return;
-
   if(!podeEncaminhar(d)){
-    alert("Você não tem permissão para encaminhar.");
+    alert("Você não tem permissão para encaminhar esta demanda.");
     return;
   }
 
@@ -596,14 +624,11 @@ async function encaminharDemanda(demandaId){
     return;
   }
 
-  const payload = {
-    programador: destinoNome,
-    encaminhar_para: destinoNome,
-    status: "ENCAMINHADA"
-  };
+  const payload = { programador: destinoNome, encaminhar_para: destinoNome, status: "ENCAMINHADA" };
 
   const { error } = await supabaseClient.from("demandas").update(payload).eq("id", demandaId);
   if(error){
+    console.error("Erro ao encaminhar:", error);
     alert("Erro ao encaminhar: " + error.message);
     return;
   }
@@ -626,6 +651,7 @@ async function carregarAtualizacoesDemanda(demandaId){
     .order("created_at", { ascending: true });
 
   if(error){
+    console.error("Erro ao carregar atualizações:", error);
     listaEl.textContent = "Erro ao carregar atualizações.";
     return;
   }
@@ -649,7 +675,6 @@ async function carregarAtualizacoesDemanda(demandaId){
 
 async function salvarAtualizacaoDemanda(e){
   e.preventDefault();
-
   if(!currentUserProfile){
     alert("Faça login para registrar atualização.");
     return;
@@ -658,7 +683,7 @@ async function salvarAtualizacaoDemanda(e){
   const demandaId = byId("det-demanda-id").value;
   const msg = byId("nova-atualizacao-texto").value.trim();
   if(!demandaId || !msg){
-    alert("Escreva uma mensagem.");
+    alert("Escreva uma mensagem de atualização.");
     return;
   }
 
@@ -670,6 +695,7 @@ async function salvarAtualizacaoDemanda(e){
   }]);
 
   if(error){
+    console.error("Erro ao salvar atualização:", error);
     alert("Erro ao salvar atualização: " + error.message);
     return;
   }
@@ -679,22 +705,19 @@ async function salvarAtualizacaoDemanda(e){
 }
 
 // =========================
-// USUÁRIOS PARA ENCAMINHAR + FILTROS
+// FILTROS E SUGESTÕES
 // =========================
-async function carregarUsuariosParaEncaminhar(){
-  // ⚠️ Se aqui não listar, é RLS do Supabase bloqueando SELECT.
-  // O correto é permitir SELECT de usuarios ATIVOS para authenticated.
+async function carregarUsuariosAtivosParaEncaminhar(){
   const { data, error } = await supabaseClient
     .from("usuarios")
     .select("id,nome,tipo,status")
     .order("nome", { ascending: true });
 
   if(error){
-    console.error("Erro ao carregar usuários:", error);
-    usuariosCache = [];
+    console.error("Erro ao carregar lista de usuários (ativos):", error);
     return;
   }
-  usuariosCache = data || [];
+  usuariosAtivosCache = data || [];
 }
 
 function atualizarFiltrosSugestoes(){
@@ -726,23 +749,26 @@ function atualizarFiltrosSugestoes(){
   popularSelectComSet("filtro-estado", estados, "Estado");
   popularSelectComSet("filtro-tipo-entidade", tiposEntidade, "Tipo Entidade");
 
-  renderizarSugestoesChips("sugs-assunto", assuntos, (v)=>{ byId("dem-assunto").value = v; });
-  renderizarSugestoesChips("sugs-contato-cliente", contatosCliente, (v)=>{ byId("dem-contato-cliente").value = v; });
-
-  const ativosNomes = new Set(
-    usuariosCache.filter(u => (u.status||"").toUpperCase() === "ATIVO").map(u => u.nome).filter(Boolean)
-  );
-  programadores.forEach(n => ativosNomes.add(n));
-  renderizarSugestoesChips("sugs-programador", ativosNomes, (v)=>{ byId("dem-programador").value = v; });
-
-  renderizarSugestoesChips("sugs-forma-atendimento", formasAtendimento, (v)=>{
+  renderizarSugestoesChips("sugs-assunto", assuntos, (valor)=>{ byId("dem-assunto").value = valor; });
+  renderizarSugestoesChips("sugs-forma-atendimento", formasAtendimento, (valor)=>{
     const campo = byId("dem-forma-atendimento");
-    if(!campo.value) campo.value = v;
+    if(!campo.value) campo.value = valor;
     else{
       const parts = campo.value.split(",").map(s=>s.trim()).filter(Boolean);
-      if(!parts.includes(v)) campo.value = campo.value.trim() + ", " + v;
+      if(!parts.includes(valor)) campo.value = campo.value.trim() + ", " + valor;
     }
   });
+  renderizarSugestoesChips("sugs-contato-cliente", contatosCliente, (valor)=>{ byId("dem-contato-cliente").value = valor; });
+
+  // ✅ usa cache de ativos para sugestões (não depende do gestor)
+  const ativosNomes = new Set(
+    usuariosAtivosCache
+      .filter(u => (u.status || "").toUpperCase() === "ATIVO")
+      .map(u => u.nome)
+      .filter(Boolean)
+  );
+  programadores.forEach(n => ativosNomes.add(n));
+  renderizarSugestoesChips("sugs-programador", ativosNomes, (valor)=>{ byId("dem-programador").value = valor; });
 }
 
 function popularSelectComSet(selectId, setValores, labelPadrao){
@@ -767,7 +793,7 @@ function popularSelectComSet(selectId, setValores, labelPadrao){
   select.value = Array.from(setValores).includes(valorAtual) ? valorAtual : "TODOS";
 }
 
-function renderizarSugestoesChips(containerId, setValores, onClick){
+function renderizarSugestoesChips(containerId, setValores, onClickValor){
   const cont = byId(containerId);
   if(!cont) return;
   cont.innerHTML = "";
@@ -778,16 +804,15 @@ function renderizarSugestoesChips(containerId, setValores, onClick){
     return;
   }
 
-  for(const v of arr){
+  for(const valor of arr){
     const span = document.createElement("span");
     span.classList.add("chip-sugestao");
-    span.textContent = v;
-    span.addEventListener("click", ()=>onClick(v));
+    span.textContent = valor;
+    span.addEventListener("click", ()=>onClickValor(valor));
     cont.appendChild(span);
   }
 }
 
-// handlers filtros
 function onFiltroStatusChange(){ filtrosAtuais.status = byId("filtro-status").value; renderizarDemandas(); }
 function onFiltroAtendenteChange(){ filtrosAtuais.atendente = byId("filtro-atendente").value; renderizarDemandas(); }
 function onFiltroProgramadorChange(){ filtrosAtuais.programador = byId("filtro-programador").value; renderizarDemandas(); }
@@ -796,6 +821,122 @@ function onFiltroEstadoChange(){ filtrosAtuais.estado = byId("filtro-estado").va
 function onFiltroTipoEntidadeChange(){ filtrosAtuais.tipoEntidade = byId("filtro-tipo-entidade").value; renderizarDemandas(); }
 function onFiltroOcultarConcluidasChange(){ filtrosAtuais.ocultarConcluidas = byId("filtro-ocultar-concluidas").checked; renderizarDemandas(); }
 function onBuscaTextoKeyup(){ filtrosAtuais.buscaTexto = byId("filtro-busca").value; renderizarDemandas(); }
+
+// =========================
+// GESTÃO DE USUÁRIOS (GESTOR)  ✅ AQUI O FIX
+// =========================
+async function carregarUsuariosGestor(){
+  if(!ehGestor()) return;
+
+  const tbody = byId("tabela-usuarios");
+  if(tbody) tbody.innerHTML = `<tr><td colspan="6">Carregando usuários...</td></tr>`;
+
+  const { data, error } = await supabaseClient
+    .from("usuarios")
+    .select("*")
+    .order("nome", { ascending:true });
+
+  if(error){
+    console.error("Erro ao carregar usuários (gestor):", error);
+    if(tbody) tbody.innerHTML = `<tr><td colspan="6">Erro ao carregar usuários. Verifique RLS.</td></tr>`;
+    return;
+  }
+
+  usuariosGestorCache = data || [];
+  renderizarUsuariosGestor();
+}
+
+function renderizarUsuariosGestor(){
+  const tbody = byId("tabela-usuarios");
+  if(!tbody) return;
+
+  tbody.innerHTML = "";
+
+  if(!usuariosGestorCache.length){
+    tbody.innerHTML = `<tr><td colspan="6">Nenhum usuário encontrado.</td></tr>`;
+    return;
+  }
+
+  for(const u of usuariosGestorCache){
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td>${u.nome || ""}</td>
+      <td>${u.email || ""}</td>
+      <td>${u.tipo || ""}</td>
+      <td>${u.unidade || ""}</td>
+      <td><span class="badge-status ${u.status || ""}">${u.status || ""}</span></td>
+      <td>
+        <div class="acao-botoes">
+          <button class="btn-xs" data-a="ATIVO">Ativar</button>
+          <button class="btn-xs" data-a="PENDENTE">Pendente</button>
+          <button class="btn-xs" data-a="INATIVO">Inativar</button>
+          <button class="btn-xs" data-a="EDITAR">Editar</button>
+          <button class="btn-xs" data-a="EXCLUIR">Excluir</button>
+        </div>
+      </td>
+    `;
+
+    tr.querySelectorAll("button.btn-xs").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const a = btn.getAttribute("data-a");
+        if(a === "EDITAR") return editarUsuarioPrompt(u);
+        if(a === "EXCLUIR") return excluirUsuario(u.id);
+        return atualizarStatusUsuario(u.id, a);
+      });
+    });
+
+    tbody.appendChild(tr);
+  }
+}
+
+async function atualizarStatusUsuario(userId, novoStatus){
+  if(!ehGestor()) return;
+  const { error } = await supabaseClient.from("usuarios").update({ status: novoStatus }).eq("id", userId);
+  if(error){
+    console.error("Erro ao atualizar status:", error);
+    alert("Erro ao atualizar status: " + error.message);
+    return;
+  }
+  alert("Status atualizado com sucesso!");
+  await carregarUsuariosGestor();
+}
+
+async function editarUsuarioPrompt(u){
+  const novoNome = prompt("Novo nome:", u.nome || "");
+  if(novoNome === null) return;
+  const novoEmail = prompt("Novo email:", u.email || "");
+  if(novoEmail === null) return;
+
+  const { error } = await supabaseClient.from("usuarios").update({
+    nome: novoNome.trim(),
+    email: novoEmail.trim()
+  }).eq("id", u.id);
+
+  if(error){
+    console.error("Erro ao editar usuário:", error);
+    alert("Erro ao editar usuário: " + error.message);
+    return;
+  }
+
+  alert("Usuário atualizado com sucesso!");
+  await carregarUsuariosGestor();
+}
+
+async function excluirUsuario(userId){
+  if(!ehGestor()) return;
+  if(!confirm("Tem certeza que deseja excluir este usuário?")) return;
+
+  const { error } = await supabaseClient.from("usuarios").delete().eq("id", userId);
+  if(error){
+    console.error("Erro ao excluir usuário:", error);
+    alert("Erro ao excluir usuário: " + error.message);
+    return;
+  }
+
+  alert("Usuário excluído com sucesso!");
+  await carregarUsuariosGestor();
+}
 
 // =========================
 // LISTENERS
@@ -819,8 +960,14 @@ function registrarListeners(){
   byId("btn-fechar-modal")?.addEventListener("click", fecharModal);
   byId("modal-overlay")?.addEventListener("click", fecharModal);
 
+  byId("btn-graficos")?.addEventListener("click", () => {
+    alert("Tela de gráficos pode ser implementada com Chart.js usando demandasCache.");
+  });
+
   document.addEventListener("keydown", (e) => {
-    if(e.key === "Escape") fecharModal();
+    if(e.key === "Escape"){
+      fecharModal();
+    }
   });
 }
 

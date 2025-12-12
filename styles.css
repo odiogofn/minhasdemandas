@@ -11,6 +11,7 @@ body{
 
 .hidden{ display:none !important; }
 
+/* Auth */
 .auth-card{
   max-width:960px;
   margin:40px auto;
@@ -73,8 +74,10 @@ textarea{ resize:vertical; min-height:70px; }
 .status-text{ margin-top:10px; font-size:12px; color:#4b5563; }
 .hint{ font-size:12px; color:#6b7280; margin-top:6px; }
 
+/* App */
 .app{ min-height:100vh; }
 
+/* Topbar */
 .topbar{
   background:#111827;
   color:#f9fafb;
@@ -107,6 +110,7 @@ textarea{ resize:vertical; min-height:70px; }
   border-color:rgba(16,185,129,.5);
 }
 
+/* Layout */
 .layout{
   max-width:1320px;
   margin:16px auto;
@@ -136,6 +140,7 @@ textarea{ resize:vertical; min-height:70px; }
 .panel-header h2{ margin:0; font-size:15px; }
 .status-bar{ font-size:11px; color:#6b7280; }
 
+/* Form */
 .form-grid{ display:flex; flex-direction:column; gap:10px; }
 .chips{ margin-top:4px; display:flex; flex-wrap:wrap; gap:4px; }
 .chip-sugestao{
@@ -149,6 +154,7 @@ textarea{ resize:vertical; min-height:70px; }
 }
 .chip-sugestao:hover{ background:#e0e7ff; }
 
+/* Filters + table */
 .filters{
   display:flex;
   flex-wrap:wrap;
@@ -198,11 +204,9 @@ tbody tr:hover{ background:#f3f4f6; }
   font-size:11px;
 }
 .btn-mini:hover{ background:#f3f4f6; }
-.btn-mini:disabled{
-  opacity:.5;
-  cursor:not-allowed;
-}
+.btn-mini:disabled{ opacity:.5; cursor:not-allowed; }
 
+/* Modal */
 .modal-overlay{
   position:fixed;
   inset:0;
@@ -252,6 +256,7 @@ tbody tr:hover{ background:#f3f4f6; }
 }
 .detalhes-grid .full{ grid-column: 1 / 3; }
 
+/* Actions cards */
 .acoes-grid{
   display:grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -266,6 +271,7 @@ tbody tr:hover{ background:#f3f4f6; }
 .acao-card h4{ margin:0 0 8px; font-size:13px; }
 .acao-card.danger{ background:#fff5f5; border-color:#fecaca; }
 
+/* Updates */
 .lista-atualizacoes{
   list-style:none;
   padding:0;
@@ -283,6 +289,28 @@ tbody tr:hover{ background:#f3f4f6; }
 }
 .item-atualizacao .muted{ font-size:11px; color:#6b7280; }
 .form-atualizacao textarea{ min-height:70px; margin-bottom:6px; }
+
+/* Gestor users */
+#sec-painel-gestor .table-wrapper{ max-height:260px; }
+.badge-status{
+  font-size:11px;
+  padding:2px 8px;
+  border-radius:999px;
+  display:inline-block;
+}
+.badge-status.PENDENTE{ background:#fef3c7; color:#92400e; }
+.badge-status.ATIVO{ background:#bbf7d0; color:#166534; }
+.badge-status.INATIVO{ background:#fee2e2; color:#991b1b; }
+.btn-xs{
+  padding:3px 6px;
+  font-size:11px;
+  border-radius:999px;
+  border:1px solid #d1d5db;
+  background:#fff;
+  cursor:pointer;
+}
+.btn-xs:hover{ background:#f3f4f6; }
+.acao-botoes{ display:flex; flex-wrap:wrap; gap:4px; }
 
 @media (max-width: 1050px){
   .layout{ grid-template-columns: 1fr; }
