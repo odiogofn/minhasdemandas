@@ -2,448 +2,290 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <title>Sistema de Demandas - Gestão ASPEC / iTarget</title>
+  <title>Sistema de Demandas</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- CSS -->
   <link rel="stylesheet" href="styles.css" />
-
-  <!-- Supabase -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.48.0/dist/umd/supabase.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.48.0/dist/umd/supabase.min.js" defer></script>
+  <script src="app.js" defer></script>
 </head>
 <body>
-  <!-- =======================
-       TELA DE LOGIN / CADASTRO
-       ======================= -->
-  <div id="auth-container" class="auth-wrapper">
-    <div class="auth-card">
-      <h1 class="app-title">Sistema de Demandas</h1>
-      <p class="app-subtitle">Acesso restrito · ASPEC / iTarget</p>
-
-      <!-- LOGIN -->
-      <section class="auth-section">
+  <!-- TELA DE LOGIN / CADASTRO -->
+  <div id="auth-container" class="auth-card">
+    <h1>Sistema de Demandas</h1>
+    <div class="auth-columns">
+      <div class="auth-box">
         <h2>Entrar</h2>
-        <div class="form-group">
-          <label for="login-email">Email</label>
-          <input type="email" id="login-email" placeholder="seu.email@dominio.com" />
-        </div>
-        <div class="form-group">
-          <label for="login-senha">Senha</label>
-          <input type="password" id="login-senha" placeholder="Sua senha" />
-        </div>
-        <button id="btn-login" type="button" class="btn btn-primary full-width">
-          Entrar
-        </button>
-      </section>
+        <label for="login-email">Email</label>
+        <input type="email" id="login-email" />
 
-      <hr class="auth-divider" />
+        <label for="login-senha">Senha</label>
+        <input type="password" id="login-senha" />
 
-      <!-- CADASTRO -->
-      <section class="auth-section">
-        <h2>Novo cadastro</h2>
-        <div class="form-group">
-          <label for="cad-nome">Nome completo</label>
-          <input type="text" id="cad-nome" placeholder="Seu nome" />
-        </div>
-        <div class="form-group">
-          <label for="cad-email">Email corporativo</label>
-          <input type="email" id="cad-email" placeholder="seu.email@dominio.com" />
-        </div>
+        <button id="btn-login" class="btn primary">Entrar</button>
+        <p class="hint">Seu acesso só é liberado após aprovação do gestor.</p>
+      </div>
 
-        <div class="form-row">
-          <div class="col-2">
-            <label for="cad-dt-nasc">Data de nascimento</label>
+      <div class="auth-box">
+        <h2>Novo Cadastro</h2>
+        <label for="cad-nome">Nome</label>
+        <input type="text" id="cad-nome" />
+
+        <label for="cad-email">Email</label>
+        <input type="email" id="cad-email" />
+
+        <div class="row">
+          <div class="col">
+            <label for="cad-dt-nasc">Data de Nascimento</label>
             <input type="date" id="cad-dt-nasc" />
           </div>
-          <div class="col-2">
+          <div class="col">
             <label for="cad-unidade">Unidade</label>
             <select id="cad-unidade">
               <option value="">Selecione...</option>
-              <option value="ASPEC">ASPEC</option>
-              <option value="ITARGET">iTarget</option>
+              <option>ASPEC</option>
+              <option>ITARGET</option>
             </select>
           </div>
         </div>
 
-        <div class="form-group">
-          <label for="cad-tipo">Tipo de usuário</label>
-          <select id="cad-tipo">
-            <option value="PROGRAMADOR">Programador</option>
-            <option value="ATENDENTE">Atendente</option>
-            <option value="GESTOR">Gestor</option>
-          </select>
-          <p class="help-text">
-            O tipo poderá ser revisado pelo gestor na aprovação do cadastro.
-          </p>
-        </div>
+        <label for="cad-tipo">Tipo de Usuário</label>
+        <select id="cad-tipo">
+          <option value="PROGRAMADOR">Programador</option>
+          <option value="ATENDENTE">Atendente</option>
+          <option value="GESTOR">Gestor</option>
+        </select>
 
-        <div class="form-row">
-          <div class="col-2">
-            <label for="cad-senha">Senha</label>
-            <input type="password" id="cad-senha" placeholder="até 10 caracteres" />
+        <div class="row">
+          <div class="col">
+            <label for="cad-senha">Senha (até 10 caracteres, sem símbolos)</label>
+            <input type="password" id="cad-senha" />
           </div>
-          <div class="col-2">
+          <div class="col">
             <label for="cad-senha2">Confirme a senha</label>
-            <input type="password" id="cad-senha2" placeholder="repita a senha" />
+            <input type="password" id="cad-senha2" />
           </div>
         </div>
 
-        <button id="btn-cadastrar" type="button" class="btn btn-secondary full-width">
-          Cadastrar usuário
-        </button>
-
-        <p id="auth-status" class="status-text"></p>
-      </section>
+        <button id="btn-cadastrar" class="btn secondary">Cadastrar Usuário</button>
+      </div>
     </div>
+    <p id="auth-status" class="status-text"></p>
   </div>
 
-  <!-- =======================
-       APLICACAO PRINCIPAL
-       ======================= -->
-  <div id="app-container" class="app-root" style="display:none;">
-
-    <!-- TOPO -->
-    <header class="app-header">
-      <div class="logo-area">
-        <span class="logo-mark">DM</span>
-        <div class="logo-text">
-          <div class="logo-title">Sistema de Demandas</div>
-          <div class="logo-subtitle">Fluxo · Programação · Atendimento</div>
-        </div>
+  <!-- APLICACAO PRINCIPAL -->
+  <div id="app-container" class="app hidden">
+    <header class="topbar">
+      <div class="topbar-left">
+        <span class="logo">Sistema de Demandas</span>
+        <span id="ajuda-perfil" class="perfil-hint"></span>
       </div>
-      <div class="header-actions">
+      <div class="topbar-right">
         <span id="user-label" class="user-label"></span>
-        <button id="btn-graficos" type="button" class="btn btn-outline">
-          Gráficos
-        </button>
-        <button id="btn-logout" type="button" class="btn btn-danger">
-          Sair
-        </button>
+        <span class="badge ok">Supabase conectado</span>
+        <button id="btn-graficos" class="btn ghost">Gráficos</button>
+        <button id="btn-logout" class="btn danger">Sair</button>
       </div>
     </header>
 
-    <!-- BARRA DE STATUS -->
-    <div class="status-bar" id="status-bar">
-      Pronto
-    </div>
+    <main class="layout">
+      <section class="panel" id="sec-cadastro-demanda">
+        <div class="panel-header">
+          <h2>Cadastro de Demanda</h2>
+          <span class="status-bar" id="status-bar">Pronto</span>
+        </div>
+        <form id="form-demanda" class="form-grid">
+          <div class="row">
+            <div class="col">
+              <label for="dem-municipio">Município</label>
+              <input type="text" id="dem-municipio" />
+            </div>
+            <div class="col">
+              <label for="dem-tipo-entidade">Tipo Entidade (CM, PM, CONSORCIO, IPM)</label>
+              <input type="text" id="dem-tipo-entidade" />
+            </div>
+          </div>
 
-    <!-- CONTEÚDO PRINCIPAL -->
-    <main class="app-main">
-      <aside class="sidebar">
-        <div class="card">
-          <h2>Bem-vindo!</h2>
-          <p id="ajuda-perfil" class="help-text">
-            Carregando perfil...
-          </p>
+          <div class="row">
+            <div class="col">
+              <label for="dem-contato-cliente">Contato Cliente</label>
+              <input type="text" id="dem-contato-cliente" />
+            </div>
+            <div class="col">
+              <label for="dem-estado">Estado</label>
+              <select id="dem-estado">
+                <option value="">Selecione...</option>
+                <option value="Maranhão">Maranhão</option>
+                <option value="Ceará">Ceará</option>
+                <option value="Pará">Pará</option>
+                <option value="Rio Grande do Norte">Rio Grande do Norte</option>
+                <option value="Amapá">Amapá</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col">
+              <label for="dem-assunto">Assunto</label>
+              <input type="text" id="dem-assunto" />
+              <div id="sugs-assunto" class="chips"></div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col">
+              <label for="dem-descricao">Descrição</label>
+              <textarea id="dem-descricao"></textarea>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col">
+              <label for="dem-programador">Programador</label>
+              <input type="text" id="dem-programador" />
+              <div id="sugs-programador" class="chips"></div>
+            </div>
+            <div class="col">
+              <label for="dem-forma-atendimento">Forma de Atendimento (viram tags ao separar por vírgula)</label>
+              <input type="text" id="dem-forma-atendimento" />
+              <div id="sugs-forma-atendimento" class="chips"></div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col">
+              <label for="dem-status">Status</label>
+              <select id="dem-status">
+                <option>ABERTA</option>
+                <option>EM ANÁLISE</option>
+                <option>NA PROGRAMAÇÃO</option>
+                <option>ENCAMINHADA</option>
+                <option>CONCLUÍDA</option>
+              </select>
+            </div>
+            <div class="col">
+              <label for="dem-prioridade">Prioridade</label>
+              <select id="dem-prioridade">
+                <option>BAIXA</option>
+                <option selected>MÉDIA</option>
+                <option>ALTA</option>
+                <option>URGENTE</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col">
+              <label for="dem-link-trello">Link Trello</label>
+              <input type="url" id="dem-link-trello" />
+            </div>
+            <div class="col">
+              <label for="dem-link-email">Link Email (código)</label>
+              <input type="text" id="dem-link-email" />
+            </div>
+          </div>
+
+          <button type="submit" class="btn primary">Salvar Demanda</button>
+        </form>
+      </section>
+
+      <section class="panel" id="sec-lista-demandas">
+        <div class="panel-header">
+          <h2>Demandas</h2>
+          <div class="filters">
+            <input type="text" id="filtro-busca" placeholder="Buscar por descrição, assunto ou código..." />
+            <label class="inline">
+              <input type="checkbox" id="filtro-ocultar-concluidas" />
+              Ocultar concluídas
+            </label>
+            <select id="filtro-status">
+              <option value="TODOS">Todos Status</option>
+              <option value="ABERTA">Aberta</option>
+              <option value="EM ANÁLISE">Em análise</option>
+              <option value="NA PROGRAMAÇÃO">Na programação</option>
+              <option value="ENCAMINHADA">Encaminhada</option>
+              <option value="CONCLUÍDA">Concluída</option>
+            </select>
+            <select id="filtro-atendente"></select>
+            <select id="filtro-programador"></select>
+            <select id="filtro-municipio"></select>
+            <select id="filtro-estado"></select>
+            <select id="filtro-tipo-entidade"></select>
+          </div>
         </div>
 
-        <!-- PAINEL GESTOR - GESTÃO DE USUÁRIOS -->
-        <section id="sec-painel-gestor" class="card" style="display:none;">
-          <h2>Painel do Gestor</h2>
-          <p class="help-text">
-            Aprove / inative usuários e ajuste tipo de acesso.
-          </p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Município</th>
+                <th>Assunto</th>
+                <th>Status</th>
+                <th>Prioridade</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-demandas"></tbody>
+          </table>
+        </div>
+        <p id="total-demandas" class="status-text"></p>
+      </section>
 
-          <div class="table-wrapper">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>Email</th>
-                  <th>Unidade</th>
-                  <th>Tipo</th>
-                  <th>Status</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody id="tabela-usuarios">
-                <!-- preenchido via JS -->
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </aside>
+      <section class="panel side" id="sec-detalhes-demanda">
+        <div class="panel-header">
+          <h2>Detalhes da Demanda</h2>
+        </div>
+        <input type="hidden" id="det-demanda-id" />
+        <div class="detalhes-grid">
+          <div><strong>Código:</strong> <span id="det-codigo"></span></div>
+          <div><strong>Município:</strong> <span id="det-municipio"></span></div>
+          <div><strong>Tipo Entidade:</strong> <span id="det-tipo-entidade"></span></div>
+          <div><strong>Contato Cliente:</strong> <span id="det-contato-cliente"></span></div>
+          <div><strong>Estado:</strong> <span id="det-estado"></span></div>
+          <div><strong>Assunto:</strong> <span id="det-assunto"></span></div>
+          <div class="full"><strong>Descrição:</strong> <span id="det-descricao"></span></div>
+          <div><strong>Programador:</strong> <span id="det-programador"></span></div>
+          <div><strong>Forma Atendimento:</strong> <span id="det-forma-atendimento"></span></div>
+          <div><strong>Prioridade:</strong> <span id="det-prioridade"></span></div>
+          <div><strong>Status:</strong> <span id="det-status"></span></div>
+          <div><strong>Atendente:</strong> <span id="det-atendente"></span></div>
+          <div><strong>Link Trello:</strong> <span id="det-link-trello"></span></div>
+          <div><strong>Link Email:</strong> <span id="det-link-email"></span></div>
+          <div><strong>Criado em:</strong> <span id="det-criado-em"></span></div>
+        </div>
 
-      <section class="main-content">
+        <h3>Atualizações</h3>
+        <ul id="lista-atualizacoes" class="lista-atualizacoes"></ul>
 
-        <!-- CADASTRO DE DEMANDA -->
-        <section id="sec-cadastro-demanda" class="card">
-          <div class="card-header">
-            <h2>Cadastro de Demanda</h2>
-          </div>
+        <form id="form-atualizacao-demanda" class="form-atualizacao">
+          <textarea id="nova-atualizacao-texto" placeholder="Registrar novo andamento..."></textarea>
+          <button type="submit" class="btn primary">Adicionar atualização</button>
+        </form>
+      </section>
 
-          <form id="form-demanda" class="form-vertical">
-            <div class="form-row">
-              <div class="col-2">
-                <label for="dem-municipio">Município</label>
-                <input type="text" id="dem-municipio" class="upper" placeholder="Ex: FORTALEZA" />
-                <div id="sugs-municipio" class="sugestoes-chips"></div>
-              </div>
-              <div class="col-2">
-                <label for="dem-tipo-entidade">Tipo de Entidade</label>
-                <input type="text" id="dem-tipo-entidade" class="upper" placeholder="Ex: CM, PM, CONSORCIO, IPM" />
-                <div id="sugs-tipo-entidade" class="sugestoes-chips"></div>
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="col-2">
-                <label for="dem-contato-cliente">Contato do Cliente</label>
-                <input type="text" id="dem-contato-cliente" placeholder="Nome do contato" />
-                <div id="sugs-contato-cliente" class="sugestoes-chips"></div>
-              </div>
-              <div class="col-2">
-                <label for="dem-estado">Estado</label>
-                <select id="dem-estado">
-                  <option value="">Selecione...</option>
-                  <option value="Maranhão">Maranhão</option>
-                  <option value="Ceará">Ceará</option>
-                  <option value="Pará">Pará</option>
-                  <option value="Rio Grande do Norte">Rio Grande do Norte</option>
-                  <option value="Amapá">Amapá</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="col-2">
-                <label for="dem-assunto">Assunto</label>
-                <input type="text" id="dem-assunto" class="upper" placeholder="Resumo do problema" />
-                <div id="sugs-assunto" class="sugestoes-chips"></div>
-              </div>
-              <div class="col-2">
-                <label for="dem-programador">Programador</label>
-                <input type="text" id="dem-programador" placeholder="Nome do programador" />
-                <div id="sugs-programador" class="sugestoes-chips"></div>
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label for="dem-descricao">Descrição detalhada</label>
-              <textarea id="dem-descricao" placeholder="Descreva o problema com o máximo de detalhes."></textarea>
-            </div>
-
-            <div class="form-row">
-              <div class="col-2">
-                <label for="dem-forma-atendimento">Forma de atendimento</label>
-                <input
-                  type="text"
-                  id="dem-forma-atendimento"
-                  placeholder="AnyDesk, TeamViewer, Hangouts, Email, Telefone..."
-                />
-                <div id="sugs-forma-atendimento" class="sugestoes-chips"></div>
-                <p class="help-text">
-                  Use vírgula para mais de uma forma. Cada valor vira uma tag para próximos cadastros.
-                </p>
-              </div>
-              <div class="col-2">
-                <label for="dem-prioridade">Prioridade</label>
-                <select id="dem-prioridade">
-                  <option value="BAIXA">Baixa</option>
-                  <option value="MÉDIA" selected>Média</option>
-                  <option value="ALTA">Alta</option>
-                  <option value="URGENTE">Urgente</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="col-2">
-                <label for="dem-status">Status</label>
-                <select id="dem-status">
-                  <option value="ABERTA">Aberta</option>
-                  <option value="EM ANÁLISE">Em análise</option>
-                  <option value="NA PROGRAMAÇÃO">Na programação</option>
-                  <option value="ENCAMINHADA">Encaminhada</option>
-                  <option value="CONCLUÍDA">Concluída</option>
-                </select>
-              </div>
-              <div class="col-2">
-                <label for="dem-link-trello">Link Trello</label>
-                <input type="url" id="dem-link-trello" placeholder="URL do card no Trello" />
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="col-2">
-                <label for="dem-link-email">Link Email (código)</label>
-                <input type="text" id="dem-link-email" placeholder="ID, código ou URL do email" />
-              </div>
-            </div>
-
-            <div class="form-actions-right">
-              <button type="submit" class="btn btn-primary">
-                Salvar demanda
-              </button>
-            </div>
-          </form>
-        </section>
-
-        <!-- LISTA DE DEMANDAS + FILTROS -->
-        <section id="sec-lista-demandas" class="card">
-          <div class="card-header">
-            <h2>Demandas</h2>
-            <span id="total-demandas" class="tag">Total: 0</span>
-          </div>
-
-          <!-- FILTROS -->
-          <div class="filters-bar">
-            <div class="filters-row">
-              <div class="filter-item wide">
-                <label for="filtro-busca">Busca rápida</label>
-                <input
-                  type="text"
-                  id="filtro-busca"
-                  placeholder="Pesquise por código, assunto ou descrição..."
-                />
-              </div>
-
-              <div class="filter-item">
-                <label for="filtro-status">Status</label>
-                <select id="filtro-status">
-                  <option value="TODOS">Todos</option>
-                  <option value="ABERTA">Aberta</option>
-                  <option value="EM ANÁLISE">Em análise</option>
-                  <option value="NA PROGRAMAÇÃO">Na programação</option>
-                  <option value="ENCAMINHADA">Encaminhada</option>
-                  <option value="CONCLUÍDA">Concluída</option>
-                </select>
-              </div>
-
-              <div class="filter-item">
-                <label for="filtro-atendente">Atendente</label>
-                <select id="filtro-atendente">
-                  <option value="TODOS">Todos</option>
-                </select>
-              </div>
-
-              <div class="filter-item">
-                <label for="filtro-programador">Programador</label>
-                <select id="filtro-programador">
-                  <option value="TODOS">Todos</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="filters-row">
-              <div class="filter-item">
-                <label for="filtro-municipio">Município</label>
-                <select id="filtro-municipio">
-                  <option value="TODOS">Todos</option>
-                </select>
-              </div>
-
-              <div class="filter-item">
-                <label for="filtro-estado">Estado</label>
-                <select id="filtro-estado">
-                  <option value="TODOS">Todos</option>
-                </select>
-              </div>
-
-              <div class="filter-item">
-                <label for="filtro-tipo-entidade">Tipo Entidade</label>
-                <select id="filtro-tipo-entidade">
-                  <option value="TODOS">Todos</option>
-                </select>
-              </div>
-
-              <div class="filter-item checkbox-item">
-                <label class="checkbox-label">
-                  <input type="checkbox" id="filtro-ocultar-concluidas" />
-                  Ocultar concluídas
-                </label>
-              </div>
-            </div>
-          </div>
-
-          <!-- TABELA DE DEMANDAS -->
-          <div class="table-wrapper">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Código</th>
-                  <th>Município</th>
-                  <th>Assunto</th>
-                  <th>Status</th>
-                  <th>Prioridade</th>
-                </tr>
-              </thead>
-              <tbody id="tabela-demandas">
-                <!-- preenchido pelo JS -->
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <!-- DETALHES DA DEMANDA -->
-        <section id="sec-detalhes-demanda" class="card" style="display:none;">
-          <div class="card-header">
-            <h2>Detalhes da Demanda</h2>
-          </div>
-
-          <input type="hidden" id="det-demanda-id" />
-
-          <div class="detalhes-grid">
-            <div class="det-col">
-              <h3>Identificação</h3>
-              <p><strong>Código:</strong> <span id="det-codigo">-</span></p>
-              <p><strong>Município:</strong> <span id="det-municipio">-</span></p>
-              <p><strong>Tipo Entidade:</strong> <span id="det-tipo-entidade">-</span></p>
-              <p><strong>Contato Cliente:</strong> <span id="det-contato-cliente">-</span></p>
-              <p><strong>Estado:</strong> <span id="det-estado">-</span></p>
-              <p><strong>Criado em:</strong> <span id="det-criado-em">-</span></p>
-            </div>
-
-            <div class="det-col">
-              <h3>Dados Técnicos</h3>
-              <p><strong>Assunto:</strong> <span id="det-assunto">-</span></p>
-              <p><strong>Programador:</strong> <span id="det-programador">-</span></p>
-              <p><strong>Forma de atendimento:</strong> <span id="det-forma-atendimento">-</span></p>
-              <p><strong>Prioridade:</strong> <span id="det-prioridade">-</span></p>
-              <p><strong>Status:</strong> <span id="det-status">-</span></p>
-              <p><strong>Atendente:</strong> <span id="det-atendente">-</span></p>
-            </div>
-
-            <div class="det-col">
-              <h3>Links</h3>
-              <p>
-                <strong>Trello:</strong>
-                <span id="det-link-trello">-</span>
-              </p>
-              <p>
-                <strong>Email (código):</strong>
-                <span id="det-link-email">-</span>
-              </p>
-              <h3>Descrição</h3>
-              <p id="det-descricao" class="det-descricao-texto">
-                -
-              </p>
-            </div>
-          </div>
-
-          <!-- ATUALIZAÇÕES -->
-          <div class="card-subsection">
-            <h3>Atualizações</h3>
-            <ul id="lista-atualizacoes" class="lista-atualizacoes">
-              <!-- preenchido via JS -->
-            </ul>
-
-            <form id="form-atualizacao-demanda" class="form-inline">
-              <textarea
-                id="nova-atualizacao-texto"
-                placeholder="Descreva a atualização (ex.: análise, programação, retorno ao cliente...)"
-              ></textarea>
-              <button type="submit" class="btn btn-primary">
-                Registrar atualização
-              </button>
-            </form>
-          </div>
-        </section>
-
+      <section class="panel wide" id="sec-painel-gestor">
+        <div class="panel-header">
+          <h2>Painel do Gestor – Usuários</h2>
+        </div>
+        <p class="hint">
+          Aqui o gestor aprova cadastros, altera tipo/unidade, inativa ou edita nome/email.
+        </p>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Email</th>
+                <th>Tipo</th>
+                <th>Unidade</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-usuarios"></tbody>
+          </table>
+        </div>
       </section>
     </main>
   </div>
-
-  <!-- JS -->
-  <script src="app.js"></script>
 </body>
 </html>
