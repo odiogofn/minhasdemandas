@@ -1,15 +1,13 @@
-
 // =========================
 // CONFIGURAÇÃO SUPABASE
 // =========================
-
 const SUPABASE_URL = "https://cmxepgkkdvyfraesvqly.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNteGVwZ2trZHZ5ZnJhZXN2cWx5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3ODA2NDksImV4cCI6MjA4MDM1NjY0OX0.rQMjA0pyJ2gWvPlyuQr0DccdkUs24NQTdsQvgiN2QXY";
-
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentUserProfile = null;
 let currentSession = null;
+
 let demandasCache = [];
 let usuariosCache = [];
 
@@ -24,106 +22,100 @@ let filtrosAtuais = {
   tipoEntidade: "TODOS",
 };
 
-// =========================
-// UTILITÁRIOS
-// =========================
+function byId(id){ return document.getElementById(id); }
+function setText(id, text){ const el = byId(id); if(el) el.textContent = text; }
+function show(id){ const el = byId(id); if(el) el.classList.remove("hidden"); }
+function hide(id){ const el = byId(id); if(el) el.classList.add("hidden"); }
 
-function byId(id) {
-  return document.getElementById(id);
-}
-
-function setText(id, text) {
-  const el = byId(id);
-  if (el) el.textContent = text;
-}
-
-function show(id) {
-  const el = byId(id);
-  if (el) el.classList.remove("hidden");
-}
-
-function hide(id) {
-  const el = byId(id);
-  if (el) el.classList.add("hidden");
-}
-
-function formatarDataHoraBr(dateStr) {
-  if (!dateStr) return "";
+function formatarDataHoraBr(dateStr){
+  if(!dateStr) return "";
   const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr;
+  if(isNaN(d.getTime())) return dateStr;
   return d.toLocaleString("pt-BR");
 }
-
-function validarSenhaSimples(senha) {
-  // até 10 caracteres, só letras e números
+function validarSenhaSimples(senha){
   const re = /^[A-Za-z0-9]{1,10}$/;
   return re.test(senha);
 }
 
-// =========================
-// AUTH
-// =========================
+function ehGestor(){ return currentUserProfile && currentUserProfile.tipo === "GESTOR"; }
+function ehAtendente(){ return currentUserProfile && currentUserProfile.tipo === "ATENDENTE"; }
+function ehProgramador(){ return currentUserProfile && currentUserProfile.tipo === "PROGRAMADOR"; }
 
-async function inicializarApp() {
-  const { data, error } = await supabaseClient.auth.getSession();
-  if (error) {
-    console.error("Erro ao obter sessão:", error);
-  }
-  currentSession = data?.session || null;
+function setStatusBar(texto){ setText("status-bar", texto); }
 
+// 🔐 PERMISSÕES
+function podeEditarOuExcluir(d){
+  if(!currentUserProfile || !d) return false;
+  if(ehGestor()) return true;
+  if(ehAtendente() && d.user_id === currentUserProfile.id) return true;
+  return false;
+}
+function podeEncaminhar(d){
+  if(!currentUserProfile || !d) return false;
+  if(ehGestor()) return true;
+  if(ehAtendente() && d.user_id === currentUserProfile.id) return true;
+  return false;
+}
+
+// =========================
+// INIT
+// =========================
+async function inicializarApp(){
   registrarListeners();
 
-  if (currentSession) {
+  const { data } = await supabaseClient.auth.getSession();
+  currentSession = data?.session || null;
+
+  if(currentSession){
     await carregarPerfilUsuarioAtual();
-    if (currentUserProfile) {
-      mostrarApp();
-    } else {
-      mostrarTelaAuth();
-    }
+    if(currentUserProfile) mostrarApp();
+    else mostrarTelaAuth();
   } else {
     mostrarTelaAuth();
   }
 }
 
-function mostrarTelaAuth() {
+function mostrarTelaAuth(){
   show("auth-container");
   hide("app-container");
   setText("auth-status", "Informe seus dados para entrar ou se cadastrar.");
 }
 
-function mostrarApp() {
+function ajustarInterfacePorPerfil(){
+  const ajudaEl = byId("ajuda-perfil");
+  if(ehProgramador()){
+    hide("sec-cadastro-demanda");
+    hide("sec-painel-gestor");
+    if(ajudaEl) ajudaEl.textContent = "Perfil Programador: você visualiza suas demandas e registra atualizações.";
+  } else if(ehAtendente()){
+    show("sec-cadastro-demanda");
+    hide("sec-painel-gestor");
+    if(ajudaEl) ajudaEl.textContent = "Perfil Atendente: você cadastra, edita e exclui as demandas que criar.";
+  } else if(ehGestor()){
+    show("sec-cadastro-demanda");
+    show("sec-painel-gestor");
+    if(ajudaEl) ajudaEl.textContent = "Perfil Gestor: você acompanha a produção, gerencia usuários e demandas.";
+  }
+}
+
+function mostrarApp(){
   hide("auth-container");
   show("app-container");
 
-  if (currentUserProfile) {
-    setText(
-      "user-label",
-      `${currentUserProfile.nome} (${currentUserProfile.tipo} · ${currentUserProfile.unidade || "-"})`
-    );
-  }
+  setText("user-label", `${currentUserProfile.nome} (${currentUserProfile.tipo} · ${currentUserProfile.unidade || "-"})`);
   ajustarInterfacePorPerfil();
+
+  carregarUsuariosParaEncaminhar();
   carregarDemandas();
-  if (ehGestor()) {
-    carregarUsuariosGestor();
-  }
 }
 
-function ehGestor() {
-  return currentUserProfile && currentUserProfile.tipo === "GESTOR";
-}
-
-function ehAtendente() {
-  return currentUserProfile && currentUserProfile.tipo === "ATENDENTE";
-}
-
-function ehProgramador() {
-  return currentUserProfile && currentUserProfile.tipo === "PROGRAMADOR";
-}
-
-async function carregarPerfilUsuarioAtual() {
+// =========================
+// PERFIL / LOGIN
+// =========================
+async function carregarPerfilUsuarioAtual(){
   const { data: userData, error: userError } = await supabaseClient.auth.getUser();
-  if (userError || !userData?.user) {
-    console.error("Erro ao obter usuário:", userError);
+  if(userError || !userData?.user){
     currentUserProfile = null;
     return;
   }
@@ -136,24 +128,17 @@ async function carregarPerfilUsuarioAtual() {
     .eq("id", uid)
     .single();
 
-  if (perfilError) {
-    console.error("Erro ao obter perfil:", perfilError);
+  if(perfilError){
     currentUserProfile = null;
-    setText(
-      "auth-status",
-      "Erro ao obter perfil. Verifique se o usuário foi cadastrado na tabela usuarios."
-    );
+    setText("auth-status", "Erro ao obter perfil: " + perfilError.message);
     return;
   }
 
-  if (perfil.status !== "ATIVO") {
+  if((perfil.status || "").toUpperCase() !== "ATIVO"){
     await supabaseClient.auth.signOut();
     currentSession = null;
     currentUserProfile = null;
-    setText(
-      "auth-status",
-      "Seu usuário ainda não está ATIVO. Aguarde aprovação do gestor."
-    );
+    setText("auth-status", "Seu usuário ainda não está ATIVO. Aguarde aprovação do gestor.");
     mostrarTelaAuth();
     return;
   }
@@ -161,7 +146,7 @@ async function carregarPerfilUsuarioAtual() {
   currentUserProfile = perfil;
 }
 
-async function cadastrarNovoUsuario() {
+async function cadastrarNovoUsuario(){
   const nome = byId("cad-nome").value.trim();
   const email = byId("cad-email").value.trim();
   const dtNasc = byId("cad-dt-nasc").value;
@@ -170,107 +155,80 @@ async function cadastrarNovoUsuario() {
   const senha = byId("cad-senha").value;
   const senha2 = byId("cad-senha2").value;
 
-  if (!nome || !email || !unidade || !senha || !senha2) {
+  if(!nome || !email || !unidade || !senha || !senha2){
     setText("auth-status", "Preencha todos os campos obrigatórios.");
     return;
   }
-
-  if (senha !== senha2) {
+  if(senha !== senha2){
     setText("auth-status", "As senhas não conferem.");
     return;
   }
-
-  if (!validarSenhaSimples(senha)) {
-    setText(
-      "auth-status",
-      "Senha inválida. Use até 10 caracteres, apenas letras e números, sem símbolos."
-    );
+  if(!validarSenhaSimples(senha)){
+    setText("auth-status", "Senha inválida. Use até 10 caracteres, apenas letras e números, sem símbolos.");
     return;
   }
 
   setText("auth-status", "Criando usuário...");
 
-  const { data: signData, error: signError } = await supabaseClient.auth.signUp({
-    email,
-    password: senha,
-  });
-
-  if (signError) {
-    console.error("Erro signUp:", signError);
+  const { error: signError } = await supabaseClient.auth.signUp({ email, password: senha });
+  if(signError){
     setText("auth-status", "Erro ao criar usuário: " + signError.message);
     return;
   }
 
   const { data: userData, error: userError } = await supabaseClient.auth.getUser();
-  if (userError || !userData?.user) {
-    console.error("Erro getUser:", userError);
+  if(userError || !userData?.user){
     setText("auth-status", "Usuário criado, mas não foi possível obter o ID.");
     return;
   }
 
   const uid = userData.user.id;
 
-  const { error: perfilError } = await supabaseClient.from("usuarios").insert([
-    {
-      id: uid,
-      nome,
-      email,
-      dt_nascimento: dtNasc || null,
-      unidade,
-      tipo,
-      status: "PENDENTE",
-    },
-  ]);
+  const { error: perfilError } = await supabaseClient.from("usuarios").insert([{
+    id: uid,
+    nome,
+    email,
+    dt_nascimento: dtNasc || null,
+    unidade,
+    tipo,
+    status: "PENDENTE"
+  }]);
 
-  if (perfilError) {
-    console.error("Erro ao salvar perfil:", perfilError);
-    setText(
-      "auth-status",
-      "Usuário criado no Auth, mas falhou ao salvar perfil: " + perfilError.message
-    );
+  if(perfilError){
+    setText("auth-status", "Usuário criado no Auth, mas falhou ao salvar perfil: " + perfilError.message);
     return;
   }
 
-  setText(
-    "auth-status",
-    "Cadastro realizado com sucesso! Aguarde aprovação do gestor para acessar."
-  );
+  setText("auth-status", "Cadastro realizado com sucesso! Aguarde aprovação do gestor para acessar.");
   await supabaseClient.auth.signOut();
 }
 
-async function login() {
+async function login(){
   const email = byId("login-email").value.trim();
   const senha = byId("login-senha").value;
 
-  if (!email || !senha) {
+  if(!email || !senha){
     setText("auth-status", "Informe email e senha.");
     return;
   }
 
   setText("auth-status", "Autenticando...");
 
-  const { data, error } = await supabaseClient.auth.signInWithPassword({
-    email,
-    password: senha,
-  });
-
-  if (error) {
-    console.error("Erro ao autenticar:", error);
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: senha });
+  if(error){
     setText("auth-status", "Erro ao autenticar: " + error.message);
     return;
   }
 
   currentSession = data.session;
   await carregarPerfilUsuarioAtual();
-  if (!currentUserProfile) {
-    return;
-  }
+  if(!currentUserProfile) return;
 
   setText("auth-status", "");
   mostrarApp();
 }
 
-async function logout() {
+async function logout(){
   await supabaseClient.auth.signOut();
   currentSession = null;
   currentUserProfile = null;
@@ -280,87 +238,37 @@ async function logout() {
 }
 
 // =========================
-// INTERFACE POR PERFIL
-// =========================
-
-function ajustarInterfacePorPerfil() {
-  if (!currentUserProfile) return;
-  const tipo = currentUserProfile.tipo;
-
-  const ajudaEl = byId("ajuda-perfil");
-  if (tipo === "PROGRAMADOR") {
-    hide("sec-cadastro-demanda");
-    show("sec-lista-demandas");
-    show("sec-detalhes-demanda");
-    hide("sec-painel-gestor");
-    if (ajudaEl)
-      ajudaEl.textContent =
-        "Perfil Programador: você visualiza demandas encaminhadas para você e registra atualizações.";
-  } else if (tipo === "ATENDENTE") {
-    show("sec-cadastro-demanda");
-    show("sec-lista-demandas");
-    show("sec-detalhes-demanda");
-    hide("sec-painel-gestor");
-    if (ajudaEl)
-      ajudaEl.textContent =
-        "Perfil Atendente: você cadastra, edita e exclui as demandas que criar.";
-  } else if (tipo === "GESTOR") {
-    show("sec-cadastro-demanda");
-    show("sec-lista-demandas");
-    show("sec-detalhes-demanda");
-    show("sec-painel-gestor");
-    if (ajudaEl)
-      ajudaEl.textContent =
-        "Perfil Gestor: você acompanha a produção, gerencia usuários e demandas.";
-  }
-}
-
-// =========================
 // DEMANDAS
 // =========================
-
-function setStatusBar(texto) {
-  setText("status-bar", texto);
-}
-
-async function gerarCodigoDemanda() {
+async function gerarCodigoDemanda(){
   const ano = new Date().getFullYear();
   const prefixo = "D" + ano;
 
-  const { data, error } = await supabaseClient
+  const { data } = await supabaseClient
     .from("demandas")
     .select("codigo")
     .like("codigo", `${prefixo}-%`)
     .order("codigo", { ascending: false })
     .limit(1);
 
-  if (error) {
-    console.error("Erro ao buscar último código:", error);
-    return `${prefixo}-00001`;
-  }
+  if(!data || data.length === 0) return `${prefixo}-00001`;
 
-  if (!data || data.length === 0) {
-    return `${prefixo}-00001`;
-  }
-
-  const ultimo = data[0].codigo;
+  const ultimo = data[0].codigo || "";
   const partes = ultimo.split("-");
   let num = 0;
-  if (partes.length > 1) {
-    num = parseInt(partes[1], 10) || 0;
-  }
+  if(partes.length > 1) num = parseInt(partes[1], 10) || 0;
   num++;
   return `${prefixo}-${String(num).padStart(5, "0")}`;
 }
 
-async function salvarDemanda(e) {
+async function salvarDemanda(e){
   e.preventDefault();
-  if (!currentUserProfile) {
+
+  if(!currentUserProfile){
     alert("Faça login antes de cadastrar demanda.");
     return;
   }
-
-  if (!ehAtendente() && !ehGestor()) {
+  if(!ehAtendente() && !ehGestor()){
     alert("Apenas Atendentes ou Gestores podem cadastrar demandas.");
     return;
   }
@@ -378,42 +286,37 @@ async function salvarDemanda(e) {
   const linkTrello = byId("dem-link-trello").value.trim();
   const linkEmail = byId("dem-link-email").value.trim();
 
-  if (!municipio || !assunto || !descricao) {
+  if(!municipio || !assunto || !descricao){
     alert("Preencha Município, Assunto e Descrição.");
     return;
   }
 
-  const atendente = currentUserProfile.nome;
-  const agoraLocal = new Date().toLocaleString("pt-BR");
   const codigo = await gerarCodigoDemanda();
-
   setStatusBar("Salvando demanda...");
 
-  const { error } = await supabaseClient.from("demandas").insert([
-    {
-      user_id: currentUserProfile.id,
-      codigo,
-      municipio,
-      tipo_entidade: tipoEntidade || null,
-      contato_cliente: contatoCliente || null,
-      estado: estado || null,
-      assunto,
-      descricao,
-      programador: programador || null,
-      forma_atendimento: formaAtendimento || null,
-      prioridade: prioridade || "MÉDIA",
-      status: statusDemanda || "ABERTA",
-      atendente,
-      link_trello: linkTrello || null,
-      link_email: linkEmail || null,
-      encaminhar_para: programador || null,
-      data_hora_local: agoraLocal,
-    },
-  ]);
+  const payload = {
+    user_id: currentUserProfile.id,
+    codigo,
+    municipio,
+    tipo_entidade: tipoEntidade || null,
+    contato_cliente: contatoCliente || null,
+    estado: estado || null,
+    assunto,
+    descricao,
+    programador: programador || null,
+    encaminhar_para: programador || null,
+    forma_atendimento: formaAtendimento || null,
+    prioridade: prioridade || "MÉDIA",
+    status: statusDemanda || "ABERTA",
+    atendente: currentUserProfile.nome,
+    link_trello: linkTrello || null,
+    link_email: linkEmail || null,
+    data_hora_local: new Date().toLocaleString("pt-BR"),
+  };
 
-  if (error) {
-    console.error("Erro ao salvar demanda:", error);
-    setStatusBar("Erro ao salvar demanda: " + error.message);
+  const { error } = await supabaseClient.from("demandas").insert([payload]);
+  if(error){
+    setStatusBar("Erro ao salvar: " + error.message);
     alert("Erro ao salvar demanda: " + error.message);
     return;
   }
@@ -423,25 +326,21 @@ async function salvarDemanda(e) {
   await carregarDemandas();
 }
 
-async function carregarDemandas() {
-  if (!currentUserProfile) return;
+async function carregarDemandas(){
+  if(!currentUserProfile) return;
+
   setStatusBar("Carregando demandas...");
 
-  let query = supabaseClient.from("demandas").select("*").order("created_at", {
-    ascending: false,
-  });
+  let q = supabaseClient.from("demandas").select("*").order("created_at", { ascending:false });
 
-  if (ehProgramador()) {
-    query = query.or(
-      `programador.eq.${currentUserProfile.nome},encaminhar_para.eq.${currentUserProfile.nome}`
-    );
+  // ✅ visibilidade: programador vê só as dele + gestor vê tudo + atendente vê tudo
+  if(ehProgramador()){
+    q = q.or(`programador.eq.${currentUserProfile.nome},encaminhar_para.eq.${currentUserProfile.nome}`);
   }
 
-  const { data, error } = await query;
-
-  if (error) {
-    console.error("Erro ao carregar demandas:", error);
-    setStatusBar("Erro ao carregar demandas: " + error.message);
+  const { data, error } = await q;
+  if(error){
+    setStatusBar("Erro ao carregar: " + error.message);
     return;
   }
 
@@ -451,122 +350,273 @@ async function carregarDemandas() {
   setStatusBar("Pronto");
 }
 
-function renderizarDemandas() {
+function renderizarDemandas(){
   const tbody = byId("tabela-demandas");
-  if (!tbody) return;
   tbody.innerHTML = "";
 
   let lista = [...demandasCache];
 
-  if (filtrosAtuais.ocultarConcluidas) {
-    lista = lista.filter((d) => (d.status || "").toUpperCase() !== "CONCLUÍDA");
+  if(filtrosAtuais.ocultarConcluidas){
+    lista = lista.filter(d => (d.status || "").toUpperCase() !== "CONCLUÍDA");
+  }
+  if(filtrosAtuais.status !== "TODOS"){
+    lista = lista.filter(d => (d.status || "").toUpperCase() === filtrosAtuais.status.toUpperCase());
+  }
+  if(filtrosAtuais.atendente !== "TODOS"){
+    lista = lista.filter(d => (d.atendente || "") === filtrosAtuais.atendente);
+  }
+  if(filtrosAtuais.programador !== "TODOS"){
+    lista = lista.filter(d => (d.programador || "") === filtrosAtuais.programador);
+  }
+  if(filtrosAtuais.municipio !== "TODOS"){
+    lista = lista.filter(d => (d.municipio || "") === filtrosAtuais.municipio);
+  }
+  if(filtrosAtuais.estado !== "TODOS"){
+    lista = lista.filter(d => (d.estado || "") === filtrosAtuais.estado);
+  }
+  if(filtrosAtuais.tipoEntidade !== "TODOS"){
+    lista = lista.filter(d => (d.tipo_entidade || "") === filtrosAtuais.tipoEntidade);
   }
 
-  if (filtrosAtuais.status !== "TODOS") {
-    lista = lista.filter(
-      (d) => (d.status || "").toUpperCase() === filtrosAtuais.status.toUpperCase()
+  const termo = filtrosAtuais.buscaTexto.trim().toLowerCase();
+  if(termo){
+    lista = lista.filter(d =>
+      (d.descricao || "").toLowerCase().includes(termo) ||
+      (d.assunto || "").toLowerCase().includes(termo) ||
+      (d.codigo || "").toLowerCase().includes(termo)
     );
   }
 
-  if (filtrosAtuais.atendente !== "TODOS") {
-    lista = lista.filter((d) => (d.atendente || "") === filtrosAtuais.atendente);
-  }
-
-  if (filtrosAtuais.programador !== "TODOS") {
-    lista = lista.filter((d) => (d.programador || "") === filtrosAtuais.programador);
-  }
-
-  if (filtrosAtuais.municipio !== "TODOS") {
-    lista = lista.filter((d) => (d.municipio || "") === filtrosAtuais.municipio);
-  }
-
-  if (filtrosAtuais.estado !== "TODOS") {
-    lista = lista.filter((d) => (d.estado || "") === filtrosAtuais.estado);
-  }
-
-  if (filtrosAtuais.tipoEntidade !== "TODOS") {
-    lista = lista.filter(
-      (d) => (d.tipo_entidade || "") === filtrosAtuais.tipoEntidade
-    );
-  }
-
-  if (filtrosAtuais.buscaTexto.trim() !== "") {
-    const termo = filtrosAtuais.buscaTexto.toLowerCase();
-    lista = lista.filter((d) => {
-      return (
-        (d.descricao || "").toLowerCase().includes(termo) ||
-        (d.assunto || "").toLowerCase().includes(termo) ||
-        (d.codigo || "").toLowerCase().includes(termo)
-      );
-    });
-  }
-
-  lista.forEach((d) => {
+  for(const d of lista){
     const tr = document.createElement("tr");
-    tr.classList.add("linha-demanda");
-    tr.dataset.demandaId = d.id;
 
-    const tdCodigo = document.createElement("td");
-    tdCodigo.innerHTML = `<span class="codigo">${d.codigo || "-"}</span>`;
-    tr.appendChild(tdCodigo);
+    tr.innerHTML = `
+      <td><span class="codigo">${d.codigo || "-"}</span></td>
+      <td>${d.municipio || ""}</td>
+      <td>${d.assunto || ""}</td>
+      <td>${d.status || ""}</td>
+      <td>${d.prioridade || ""}</td>
+      <td>
+        <div class="row-actions">
+          <button class="btn-mini" data-action="detalhes">Detalhes</button>
+          <button class="btn-mini" data-action="editar">Editar</button>
+          <button class="btn-mini" data-action="excluir">Excluir</button>
+        </div>
+      </td>
+    `;
 
-    const tdMunicipio = document.createElement("td");
-    tdMunicipio.textContent = d.municipio || "";
-    tr.appendChild(tdMunicipio);
+    // clique na linha => abre modal
+    tr.addEventListener("click", (ev) => {
+      if(ev.target.closest("button")) return;
+      abrirModalDemanda(d.id);
+    });
 
-    const tdAssunto = document.createElement("td");
-    tdAssunto.textContent = d.assunto || "";
-    tr.appendChild(tdAssunto);
+    tr.querySelector('[data-action="detalhes"]').addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      abrirModalDemanda(d.id);
+    });
 
-    const tdStatus = document.createElement("td");
-    tdStatus.textContent = d.status || "";
-    tr.appendChild(tdStatus);
+    tr.querySelector('[data-action="editar"]').addEventListener("click", async (ev) => {
+      ev.stopPropagation();
+      await editarDemanda(d.id);
+    });
 
-    const tdPrioridade = document.createElement("td");
-    tdPrioridade.textContent = d.prioridade || "";
-    tr.appendChild(tdPrioridade);
+    tr.querySelector('[data-action="excluir"]').addEventListener("click", async (ev) => {
+      ev.stopPropagation();
+      await excluirDemanda(d.id);
+    });
 
-    tr.addEventListener("click", () => abrirDetalhesDemanda(d.id));
+    // ✅ se não pode, desabilita
+    if(!podeEditarOuExcluir(d)){
+      tr.querySelector('[data-action="editar"]').disabled = true;
+      tr.querySelector('[data-action="excluir"]').disabled = true;
+    }
 
     tbody.appendChild(tr);
-  });
+  }
 
   setText("total-demandas", `Total: ${lista.length}`);
 }
 
-// =========================
-// DETALHES E ATUALIZAÇÕES
-// =========================
+async function excluirDemanda(demandaId){
+  const d = demandasCache.find(x => x.id === demandaId);
+  if(!d) return;
 
-async function abrirDetalhesDemanda(demandaId) {
-  const demanda = demandasCache.find((d) => d.id === demandaId);
-  if (!demanda) return;
+  if(!podeEditarOuExcluir(d)){
+    alert("Você não tem permissão para excluir esta demanda.");
+    return;
+  }
 
-  byId("det-demanda-id").value = demanda.id;
-  setText("det-codigo", demanda.codigo || "-");
-  setText("det-municipio", demanda.municipio || "-");
-  setText("det-tipo-entidade", demanda.tipo_entidade || "-");
-  setText("det-contato-cliente", demanda.contato_cliente || "-");
-  setText("det-estado", demanda.estado || "-");
-  setText("det-assunto", demanda.assunto || "-");
-  setText("det-descricao", demanda.descricao || "-");
-  setText("det-programador", demanda.programador || "-");
-  setText("det-forma-atendimento", demanda.forma_atendimento || "-");
-  setText("det-prioridade", demanda.prioridade || "-");
-  setText("det-status", demanda.status || "-");
-  setText("det-atendente", demanda.atendente || "-");
-  setText("det-link-trello", demanda.link_trello || "-");
-  setText("det-link-email", demanda.link_email || "-");
-  setText("det-criado-em", formatarDataHoraBr(demanda.created_at));
+  if(!confirm(`Excluir a demanda ${d.codigo}?`)) return;
 
-  show("sec-detalhes-demanda");
-
-  await carregarAtualizacoesDemanda(demanda.id);
+  const { error } = await supabaseClient.from("demandas").delete().eq("id", demandaId);
+  if(error){
+    alert("Erro ao excluir: " + error.message);
+    return;
+  }
+  await carregarDemandas();
 }
 
-async function carregarAtualizacoesDemanda(demandaId) {
+async function editarDemanda(demandaId){
+  const d = demandasCache.find(x => x.id === demandaId);
+  if(!d) return;
+
+  if(!podeEditarOuExcluir(d)){
+    alert("Você não tem permissão para editar esta demanda.");
+    return;
+  }
+
+  // (rápido) via prompt — se quiser eu transformo em formulário no modal
+  const municipio = prompt("Município:", d.municipio || "");
+  if(municipio === null) return;
+
+  const assunto = prompt("Assunto:", d.assunto || "");
+  if(assunto === null) return;
+
+  const descricao = prompt("Descrição:", d.descricao || "");
+  if(descricao === null) return;
+
+  const status = prompt("Status:", d.status || "");
+  if(status === null) return;
+
+  const payload = {
+    municipio: municipio.trim().toUpperCase(),
+    assunto: assunto.trim().toUpperCase(),
+    descricao: descricao.trim(),
+    status: status.trim().toUpperCase(),
+  };
+
+  const { error } = await supabaseClient.from("demandas").update(payload).eq("id", demandaId);
+  if(error){
+    alert("Erro ao editar: " + error.message);
+    return;
+  }
+  await carregarDemandas();
+}
+
+// =========================
+// MODAL
+// =========================
+function abrirModal(){
+  show("modal-overlay");
+  show("modal-detalhes");
+}
+function fecharModal(){
+  hide("modal-overlay");
+  hide("modal-detalhes");
+}
+
+async function abrirModalDemanda(demandaId){
+  const d = demandasCache.find(x => x.id === demandaId);
+  if(!d) return;
+
+  byId("det-demanda-id").value = d.id;
+
+  setText("modal-titulo", `Demanda ${d.codigo || ""}`);
+  setText("modal-subtitulo", `${d.municipio || "-"} · ${d.assunto || "-"}`);
+
+  setText("det-codigo", d.codigo || "-");
+  setText("det-municipio", d.municipio || "-");
+  setText("det-tipo-entidade", d.tipo_entidade || "-");
+  setText("det-contato-cliente", d.contato_cliente || "-");
+  setText("det-estado", d.estado || "-");
+  setText("det-assunto", d.assunto || "-");
+  setText("det-descricao", d.descricao || "-");
+  setText("det-programador", d.programador || "-");
+  setText("det-encaminhar-para", d.encaminhar_para || "-");
+  setText("det-forma-atendimento", d.forma_atendimento || "-");
+  setText("det-prioridade", d.prioridade || "-");
+  setText("det-status", d.status || "-");
+  setText("det-atendente", d.atendente || "-");
+  setText("det-link-trello", d.link_trello || "-");
+  setText("det-link-email", d.link_email || "-");
+  setText("det-criado-em", formatarDataHoraBr(d.created_at));
+
+  // ✅ encaminhar: gestor OU atendente criador
+  if(podeEncaminhar(d)){
+    show("card-encaminhar");
+    await popularSelectEncaminhar(d);
+  } else {
+    hide("card-encaminhar");
+  }
+
+  // ✅ editar/excluir dentro do modal
+  if(podeEditarOuExcluir(d)){
+    show("card-editar");
+    show("card-excluir");
+  } else {
+    hide("card-editar");
+    hide("card-excluir");
+  }
+
+  byId("btn-encaminhar").onclick = () => encaminharDemanda(d.id);
+  byId("btn-editar-demanda").onclick = async () => { await editarDemanda(d.id); await abrirModalDemanda(d.id); };
+  byId("btn-excluir-demanda").onclick = async () => { await excluirDemanda(d.id); fecharModal(); };
+
+  abrirModal();
+  await carregarAtualizacoesDemanda(d.id);
+}
+
+async function popularSelectEncaminhar(d){
+  const sel = byId("sel-encaminhar-usuario");
+  sel.innerHTML = "";
+
+  const ativos = usuariosCache.filter(u => (u.status || "").toUpperCase() === "ATIVO");
+
+  const opt0 = document.createElement("option");
+  opt0.value = "";
+  opt0.textContent = "Selecione...";
+  sel.appendChild(opt0);
+
+  ativos
+    .sort((a,b) => (a.nome || "").localeCompare((b.nome || ""), "pt-BR"))
+    .forEach(u => {
+      const opt = document.createElement("option");
+      opt.value = u.nome;
+      opt.textContent = `${u.nome} (${u.tipo})`;
+      sel.appendChild(opt);
+    });
+
+  const atual = d.encaminhar_para || d.programador || "";
+  if(atual && ativos.some(u => u.nome === atual)) sel.value = atual;
+}
+
+async function encaminharDemanda(demandaId){
+  const d = demandasCache.find(x => x.id === demandaId);
+  if(!d) return;
+
+  if(!podeEncaminhar(d)){
+    alert("Você não tem permissão para encaminhar.");
+    return;
+  }
+
+  const destinoNome = byId("sel-encaminhar-usuario").value;
+  if(!destinoNome){
+    alert("Selecione um usuário para encaminhar.");
+    return;
+  }
+
+  const payload = {
+    programador: destinoNome,
+    encaminhar_para: destinoNome,
+    status: "ENCAMINHADA"
+  };
+
+  const { error } = await supabaseClient.from("demandas").update(payload).eq("id", demandaId);
+  if(error){
+    alert("Erro ao encaminhar: " + error.message);
+    return;
+  }
+
+  await carregarDemandas();
+  await abrirModalDemanda(demandaId);
+}
+
+// =========================
+// ATUALIZAÇÕES
+// =========================
+async function carregarAtualizacoesDemanda(demandaId){
   const listaEl = byId("lista-atualizacoes");
-  if (!listaEl) return;
   listaEl.innerHTML = "Carregando atualizações...";
 
   const { data, error } = await supabaseClient
@@ -575,57 +625,51 @@ async function carregarAtualizacoesDemanda(demandaId) {
     .eq("demanda_id", demandaId)
     .order("created_at", { ascending: true });
 
-  if (error) {
-    console.error("Erro ao carregar atualizações:", error);
+  if(error){
     listaEl.textContent = "Erro ao carregar atualizações.";
     return;
   }
 
-  if (!data || data.length === 0) {
+  if(!data || data.length === 0){
     listaEl.textContent = "Nenhuma atualização registrada.";
     return;
   }
 
   listaEl.innerHTML = "";
-  data.forEach((a) => {
+  for(const a of data){
     const li = document.createElement("li");
     li.classList.add("item-atualizacao");
     li.innerHTML = `
-      <div><strong>${a.usuario_nome || "Usuário"}</strong> – <span class="muted">${formatarDataHoraBr(
-      a.created_at
-    )}</span></div>
+      <div><strong>${a.usuario_nome || "Usuário"}</strong> – <span class="muted">${formatarDataHoraBr(a.created_at)}</span></div>
       <div>${a.mensagem || ""}</div>
     `;
     listaEl.appendChild(li);
-  });
+  }
 }
 
-async function salvarAtualizacaoDemanda(e) {
+async function salvarAtualizacaoDemanda(e){
   e.preventDefault();
-  if (!currentUserProfile) {
+
+  if(!currentUserProfile){
     alert("Faça login para registrar atualização.");
     return;
   }
 
   const demandaId = byId("det-demanda-id").value;
   const msg = byId("nova-atualizacao-texto").value.trim();
-
-  if (!demandaId || !msg) {
-    alert("Escreva uma mensagem de atualização.");
+  if(!demandaId || !msg){
+    alert("Escreva uma mensagem.");
     return;
   }
 
-  const { error } = await supabaseClient.from("atualizacoes_demanda").insert([
-    {
-      demanda_id: demandaId,
-      usuario_id: currentUserProfile.id,
-      usuario_nome: currentUserProfile.nome,
-      mensagem: msg,
-    },
-  ]);
+  const { error } = await supabaseClient.from("atualizacoes_demanda").insert([{
+    demanda_id: demandaId,
+    usuario_id: currentUserProfile.id,
+    usuario_nome: currentUserProfile.nome,
+    mensagem: msg
+  }]);
 
-  if (error) {
-    console.error("Erro ao salvar atualização:", error);
+  if(error){
     alert("Erro ao salvar atualização: " + error.message);
     return;
   }
@@ -635,10 +679,25 @@ async function salvarAtualizacaoDemanda(e) {
 }
 
 // =========================
-// FILTROS E SUGESTÕES
+// USUÁRIOS PARA ENCAMINHAR + FILTROS
 // =========================
+async function carregarUsuariosParaEncaminhar(){
+  // ⚠️ Se aqui não listar, é RLS do Supabase bloqueando SELECT.
+  // O correto é permitir SELECT de usuarios ATIVOS para authenticated.
+  const { data, error } = await supabaseClient
+    .from("usuarios")
+    .select("id,nome,tipo,status")
+    .order("nome", { ascending: true });
 
-function atualizarFiltrosSugestoes() {
+  if(error){
+    console.error("Erro ao carregar usuários:", error);
+    usuariosCache = [];
+    return;
+  }
+  usuariosCache = data || [];
+}
+
+function atualizarFiltrosSugestoes(){
   const atendentes = new Set();
   const programadores = new Set();
   const municipios = new Set();
@@ -648,22 +707,18 @@ function atualizarFiltrosSugestoes() {
   const assuntos = new Set();
   const contatosCliente = new Set();
 
-  demandasCache.forEach((d) => {
-    if (d.atendente) atendentes.add(d.atendente);
-    if (d.programador) programadores.add(d.programador);
-    if (d.municipio) municipios.add(d.municipio);
-    if (d.estado) estados.add(d.estado);
-    if (d.tipo_entidade) tiposEntidade.add(d.tipo_entidade);
-    if (d.forma_atendimento) {
-      d.forma_atendimento
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .forEach((fa) => formasAtendimento.add(fa));
+  for(const d of demandasCache){
+    if(d.atendente) atendentes.add(d.atendente);
+    if(d.programador) programadores.add(d.programador);
+    if(d.municipio) municipios.add(d.municipio);
+    if(d.estado) estados.add(d.estado);
+    if(d.tipo_entidade) tiposEntidade.add(d.tipo_entidade);
+    if(d.forma_atendimento){
+      d.forma_atendimento.split(",").map(s=>s.trim()).filter(Boolean).forEach(fa => formasAtendimento.add(fa));
     }
-    if (d.assunto) assuntos.add(d.assunto);
-    if (d.contato_cliente) contatosCliente.add(d.contato_cliente);
-  });
+    if(d.assunto) assuntos.add(d.assunto);
+    if(d.contato_cliente) contatosCliente.add(d.contato_cliente);
+  }
 
   popularSelectComSet("filtro-atendente", atendentes, "Atendente");
   popularSelectComSet("filtro-programador", programadores, "Programador");
@@ -671,341 +726,102 @@ function atualizarFiltrosSugestoes() {
   popularSelectComSet("filtro-estado", estados, "Estado");
   popularSelectComSet("filtro-tipo-entidade", tiposEntidade, "Tipo Entidade");
 
-  renderizarSugestoesChips("sugs-programador", programadores, (valor) => {
-    byId("dem-programador").value = valor;
-  });
+  renderizarSugestoesChips("sugs-assunto", assuntos, (v)=>{ byId("dem-assunto").value = v; });
+  renderizarSugestoesChips("sugs-contato-cliente", contatosCliente, (v)=>{ byId("dem-contato-cliente").value = v; });
 
-  renderizarSugestoesChips("sugs-assunto", assuntos, (valor) => {
-    byId("dem-assunto").value = valor;
-  });
+  const ativosNomes = new Set(
+    usuariosCache.filter(u => (u.status||"").toUpperCase() === "ATIVO").map(u => u.nome).filter(Boolean)
+  );
+  programadores.forEach(n => ativosNomes.add(n));
+  renderizarSugestoesChips("sugs-programador", ativosNomes, (v)=>{ byId("dem-programador").value = v; });
 
-  renderizarSugestoesChips("sugs-forma-atendimento", formasAtendimento, (valor) => {
+  renderizarSugestoesChips("sugs-forma-atendimento", formasAtendimento, (v)=>{
     const campo = byId("dem-forma-atendimento");
-    if (!campo.value) {
-      campo.value = valor;
-    } else {
-      const parts = campo.value
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      if (!parts.includes(valor)) {
-        campo.value = campo.value.trim() + ", " + valor;
-      }
+    if(!campo.value) campo.value = v;
+    else{
+      const parts = campo.value.split(",").map(s=>s.trim()).filter(Boolean);
+      if(!parts.includes(v)) campo.value = campo.value.trim() + ", " + v;
     }
-  });
-
-  renderizarSugestoesChips("sugs-contato-cliente", contatosCliente, (valor) => {
-    byId("dem-contato-cliente").value = valor;
-  });
-
-  renderizarSugestoesChips("sugs-municipio", municipios, (valor) => {
-    byId("dem-municipio").value = valor;
-  });
-
-  renderizarSugestoesChips("sugs-tipo-entidade", tiposEntidade, (valor) => {
-    byId("dem-tipo-entidade").value = valor;
   });
 }
 
-function popularSelectComSet(selectId, setValores, labelPadrao) {
+function popularSelectComSet(selectId, setValores, labelPadrao){
   const select = byId(selectId);
-  if (!select) return;
+  if(!select) return;
 
   const valorAtual = select.value || "TODOS";
-
   select.innerHTML = "";
+
   const optTodos = document.createElement("option");
   optTodos.value = "TODOS";
   optTodos.textContent = `Todos (${labelPadrao})`;
   select.appendChild(optTodos);
 
-  Array.from(setValores)
-    .sort((a, b) => a.localeCompare(b, "pt-BR"))
-    .forEach((v) => {
-      const opt = document.createElement("option");
-      opt.value = v;
-      opt.textContent = v;
-      select.appendChild(opt);
-    });
+  Array.from(setValores).sort((a,b)=>a.localeCompare(b,"pt-BR")).forEach(v=>{
+    const opt = document.createElement("option");
+    opt.value = v;
+    opt.textContent = v;
+    select.appendChild(opt);
+  });
 
-  if (Array.from(setValores).includes(valorAtual)) {
-    select.value = valorAtual;
-  } else {
-    select.value = "TODOS";
-  }
+  select.value = Array.from(setValores).includes(valorAtual) ? valorAtual : "TODOS";
 }
 
-function renderizarSugestoesChips(containerId, setValores, onClickValor) {
+function renderizarSugestoesChips(containerId, setValores, onClick){
   const cont = byId(containerId);
-  if (!cont) return;
-
+  if(!cont) return;
   cont.innerHTML = "";
 
-  const arr = Array.from(setValores).sort((a, b) => a.localeCompare(b, "pt-BR"));
-
-  if (arr.length === 0) {
+  const arr = Array.from(setValores).sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  if(arr.length === 0){
     cont.innerHTML = '<span class="hint">Sem sugestões ainda.</span>';
     return;
   }
 
-  arr.forEach((valor) => {
+  for(const v of arr){
     const span = document.createElement("span");
     span.classList.add("chip-sugestao");
-    span.textContent = valor;
-    span.addEventListener("click", () => onClickValor(valor));
+    span.textContent = v;
+    span.addEventListener("click", ()=>onClick(v));
     cont.appendChild(span);
-  });
-}
-
-function onFiltroStatusChange() {
-  filtrosAtuais.status = byId("filtro-status").value;
-  renderizarDemandas();
-}
-
-function onFiltroAtendenteChange() {
-  filtrosAtuais.atendente = byId("filtro-atendente").value;
-  renderizarDemandas();
-}
-
-function onFiltroProgramadorChange() {
-  filtrosAtuais.programador = byId("filtro-programador").value;
-  renderizarDemandas();
-}
-
-function onFiltroMunicipioChange() {
-  filtrosAtuais.municipio = byId("filtro-municipio").value;
-  renderizarDemandas();
-}
-
-function onFiltroEstadoChange() {
-  filtrosAtuais.estado = byId("filtro-estado").value;
-  renderizarDemandas();
-}
-
-function onFiltroTipoEntidadeChange() {
-  filtrosAtuais.tipoEntidade = byId("filtro-tipo-entidade").value;
-  renderizarDemandas();
-}
-
-function onFiltroOcultarConcluidasChange() {
-  filtrosAtuais.ocultarConcluidas = byId("filtro-ocultar-concluidas").checked;
-  renderizarDemandas();
-}
-
-function onBuscaTextoKeyup() {
-  filtrosAtuais.buscaTexto = byId("filtro-busca").value;
-  renderizarDemandas();
-}
-
-// =========================
-// GESTÃO DE USUÁRIOS (GESTOR)
-// =========================
-
-async function carregarUsuariosGestor() {
-  if (!ehGestor()) return;
-  const { data, error } = await supabaseClient
-    .from("usuarios")
-    .select("*")
-    .order("nome", { ascending: true });
-
-  if (error) {
-    console.error("Erro ao carregar usuários:", error);
-    return;
   }
-
-  usuariosCache = data || [];
-  renderizarUsuariosGestor();
 }
 
-function renderizarUsuariosGestor() {
-  const tbody = byId("tabela-usuarios");
-  if (!tbody) return;
-  tbody.innerHTML = "";
-
-  usuariosCache.forEach((u) => {
-    const tr = document.createElement("tr");
-
-    const tdNome = document.createElement("td");
-    tdNome.textContent = u.nome || "";
-    tr.appendChild(tdNome);
-
-    const tdEmail = document.createElement("td");
-    tdEmail.textContent = u.email || "";
-    tr.appendChild(tdEmail);
-
-    const tdTipo = document.createElement("td");
-    tdTipo.textContent = u.tipo || "";
-    tr.appendChild(tdTipo);
-
-    const tdUnidade = document.createElement("td");
-    tdUnidade.textContent = u.unidade || "";
-    tr.appendChild(tdUnidade);
-
-    const tdStatus = document.createElement("td");
-    const spanStatus = document.createElement("span");
-    spanStatus.textContent = u.status || "";
-    spanStatus.classList.add("badge-status");
-    if (u.status) spanStatus.classList.add(u.status);
-    tdStatus.appendChild(spanStatus);
-    tr.appendChild(tdStatus);
-
-    const tdAcoes = document.createElement("td");
-    const divBtns = document.createElement("div");
-    divBtns.classList.add("acao-botoes");
-
-    const btnAtivar = document.createElement("button");
-    btnAtivar.textContent = "Ativar";
-    btnAtivar.className = "btn-xs";
-    btnAtivar.addEventListener("click", () => atualizarStatusUsuario(u.id, "ATIVO"));
-
-    const btnPend = document.createElement("button");
-    btnPend.textContent = "Pendente";
-    btnPend.className = "btn-xs";
-    btnPend.addEventListener("click", () => atualizarStatusUsuario(u.id, "PENDENTE"));
-
-    const btnInat = document.createElement("button");
-    btnInat.textContent = "Inativar";
-    btnInat.className = "btn-xs";
-    btnInat.addEventListener("click", () => atualizarStatusUsuario(u.id, "INATIVO"));
-
-    const btnEditar = document.createElement("button");
-    btnEditar.textContent = "Editar";
-    btnEditar.className = "btn-xs";
-    btnEditar.addEventListener("click", () => editarUsuarioPrompt(u));
-
-    const btnExcluir = document.createElement("button");
-    btnExcluir.textContent = "Excluir";
-    btnExcluir.className = "btn-xs";
-    btnExcluir.addEventListener("click", () => excluirUsuario(u.id));
-
-    divBtns.appendChild(btnAtivar);
-    divBtns.appendChild(btnPend);
-    divBtns.appendChild(btnInat);
-    divBtns.appendChild(btnEditar);
-    divBtns.appendChild(btnExcluir);
-
-    tdAcoes.appendChild(divBtns);
-    tr.appendChild(tdAcoes);
-
-    tbody.appendChild(tr);
-  });
-}
-
-async function atualizarStatusUsuario(userId, novoStatus) {
-  if (!ehGestor()) return;
-  const { error } = await supabaseClient
-    .from("usuarios")
-    .update({ status: novoStatus })
-    .eq("id", userId);
-
-  if (error) {
-    console.error("Erro ao atualizar status:", error);
-    alert("Erro ao atualizar status: " + error.message);
-    return;
-  }
-
-  alert("Status atualizado com sucesso!");
-  await carregarUsuariosGestor();
-}
-
-async function editarUsuarioPrompt(u) {
-  if (!ehGestor() && (!currentUserProfile || currentUserProfile.id !== u.id)) {
-    alert("Apenas gestor ou o próprio usuário podem editar nome/email.");
-    return;
-  }
-
-  const novoNome = prompt("Novo nome:", u.nome || "");
-  if (novoNome === null) return;
-
-  const novoEmail = prompt("Novo email:", u.email || "");
-  if (novoEmail === null) return;
-
-  const { error } = await supabaseClient
-    .from("usuarios")
-    .update({ nome: novoNome.trim(), email: novoEmail.trim() })
-    .eq("id", u.id);
-
-  if (error) {
-    console.error("Erro ao editar usuário:", error);
-    alert("Erro ao editar usuário: " + error.message);
-    return;
-  }
-
-  alert("Usuário atualizado com sucesso!");
-  await carregarUsuariosGestor();
-}
-
-async function excluirUsuario(userId) {
-  if (!ehGestor()) return;
-  if (!confirm("Tem certeza que deseja excluir este usuário?")) return;
-
-  const { error } = await supabaseClient.from("usuarios").delete().eq("id", userId);
-  if (error) {
-    console.error("Erro ao excluir usuário:", error);
-    alert("Erro ao excluir usuário: " + error.message);
-    return;
-  }
-
-  alert("Usuário excluído com sucesso!");
-  await carregarUsuariosGestor();
-}
+// handlers filtros
+function onFiltroStatusChange(){ filtrosAtuais.status = byId("filtro-status").value; renderizarDemandas(); }
+function onFiltroAtendenteChange(){ filtrosAtuais.atendente = byId("filtro-atendente").value; renderizarDemandas(); }
+function onFiltroProgramadorChange(){ filtrosAtuais.programador = byId("filtro-programador").value; renderizarDemandas(); }
+function onFiltroMunicipioChange(){ filtrosAtuais.municipio = byId("filtro-municipio").value; renderizarDemandas(); }
+function onFiltroEstadoChange(){ filtrosAtuais.estado = byId("filtro-estado").value; renderizarDemandas(); }
+function onFiltroTipoEntidadeChange(){ filtrosAtuais.tipoEntidade = byId("filtro-tipo-entidade").value; renderizarDemandas(); }
+function onFiltroOcultarConcluidasChange(){ filtrosAtuais.ocultarConcluidas = byId("filtro-ocultar-concluidas").checked; renderizarDemandas(); }
+function onBuscaTextoKeyup(){ filtrosAtuais.buscaTexto = byId("filtro-busca").value; renderizarDemandas(); }
 
 // =========================
 // LISTENERS
 // =========================
+function registrarListeners(){
+  byId("btn-login")?.addEventListener("click", login);
+  byId("btn-cadastrar")?.addEventListener("click", cadastrarNovoUsuario);
+  byId("btn-logout")?.addEventListener("click", logout);
+  byId("form-demanda")?.addEventListener("submit", salvarDemanda);
+  byId("form-atualizacao-demanda")?.addEventListener("submit", salvarAtualizacaoDemanda);
 
-function registrarListeners() {
-  const btnLogin = byId("btn-login");
-  if (btnLogin) btnLogin.addEventListener("click", login);
+  byId("filtro-status")?.addEventListener("change", onFiltroStatusChange);
+  byId("filtro-atendente")?.addEventListener("change", onFiltroAtendenteChange);
+  byId("filtro-programador")?.addEventListener("change", onFiltroProgramadorChange);
+  byId("filtro-municipio")?.addEventListener("change", onFiltroMunicipioChange);
+  byId("filtro-estado")?.addEventListener("change", onFiltroEstadoChange);
+  byId("filtro-tipo-entidade")?.addEventListener("change", onFiltroTipoEntidadeChange);
+  byId("filtro-ocultar-concluidas")?.addEventListener("change", onFiltroOcultarConcluidasChange);
+  byId("filtro-busca")?.addEventListener("keyup", onBuscaTextoKeyup);
 
-  const btnCadastrar = byId("btn-cadastrar");
-  if (btnCadastrar) btnCadastrar.addEventListener("click", cadastrarNovoUsuario);
+  byId("btn-fechar-modal")?.addEventListener("click", fecharModal);
+  byId("modal-overlay")?.addEventListener("click", fecharModal);
 
-  const btnLogout = byId("btn-logout");
-  if (btnLogout) btnLogout.addEventListener("click", logout);
-
-  const formDemanda = byId("form-demanda");
-  if (formDemanda) formDemanda.addEventListener("submit", salvarDemanda);
-
-  const formAtualizacao = byId("form-atualizacao-demanda");
-  if (formAtualizacao)
-    formAtualizacao.addEventListener("submit", salvarAtualizacaoDemanda);
-
-  const selStatus = byId("filtro-status");
-  if (selStatus) selStatus.addEventListener("change", onFiltroStatusChange);
-
-  const selAtendente = byId("filtro-atendente");
-  if (selAtendente)
-    selAtendente.addEventListener("change", onFiltroAtendenteChange);
-
-  const selProgramador = byId("filtro-programador");
-  if (selProgramador)
-    selProgramador.addEventListener("change", onFiltroProgramadorChange);
-
-  const selMunicipio = byId("filtro-municipio");
-  if (selMunicipio)
-    selMunicipio.addEventListener("change", onFiltroMunicipioChange);
-
-  const selEstado = byId("filtro-estado");
-  if (selEstado) selEstado.addEventListener("change", onFiltroEstadoChange);
-
-  const selTipoEntidade = byId("filtro-tipo-entidade");
-  if (selTipoEntidade)
-    selTipoEntidade.addEventListener("change", onFiltroTipoEntidadeChange);
-
-  const chkOcultar = byId("filtro-ocultar-concluidas");
-  if (chkOcultar)
-    chkOcultar.addEventListener("change", onFiltroOcultarConcluidasChange);
-
-  const inpBusca = byId("filtro-busca");
-  if (inpBusca) inpBusca.addEventListener("keyup", onBuscaTextoKeyup);
-
-  const btnGraficos = byId("btn-graficos");
-  if (btnGraficos) {
-    btnGraficos.addEventListener("click", () => {
-      alert("Tela de gráficos pode ser implementada com Chart.js usando demandasCache.");
-    });
-  }
+  document.addEventListener("keydown", (e) => {
+    if(e.key === "Escape") fecharModal();
+  });
 }
 
 window.addEventListener("load", inicializarApp);
