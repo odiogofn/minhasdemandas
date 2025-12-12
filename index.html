@@ -51,7 +51,7 @@
         <label for="cad-tipo">Tipo de Usuário</label>
         <select id="cad-tipo">
           <option value="PROGRAMADOR">Programador</option>
-          <option value="ATENDENTE">Atendente</option>
+          <option value="SUPORTE">Suporte</option>
           <option value="GESTOR">Gestor</option>
         </select>
 
@@ -88,16 +88,20 @@
     </header>
 
     <main class="layout">
+      <!-- CADASTRO DE DEMANDA -->
       <section class="panel" id="sec-cadastro-demanda">
         <div class="panel-header">
           <h2>Cadastro de Demanda</h2>
           <span class="status-bar" id="status-bar">Pronto</span>
         </div>
+
         <form id="form-demanda" class="form-grid">
           <div class="row">
             <div class="col">
-              <label for="dem-municipio">Município</label>
-              <input type="text" id="dem-municipio" />
+              <label for="dem-cliente">Cliente</label>
+              <select id="dem-cliente">
+                <option value="">Selecione...</option>
+              </select>
             </div>
             <div class="col">
               <label for="dem-tipo-entidade">Tipo Entidade (CM, PM, CONSORCIO, IPM)</label>
@@ -107,24 +111,24 @@
 
           <div class="row">
             <div class="col">
-              <label for="dem-contato-cliente">Contato Cliente</label>
-              <input type="text" id="dem-contato-cliente" />
-              <div id="sugs-contato-cliente" class="chips"></div>
-            </div>
-            <div class="col">
               <label for="dem-estado">Estado</label>
               <select id="dem-estado">
                 <option value="">Selecione...</option>
-                <option value="Maranhão">Maranhão</option>
-                <option value="Ceará">Ceará</option>
-                <option value="Pará">Pará</option>
-                <option value="Rio Grande do Norte">Rio Grande do Norte</option>
-                <option value="Amapá">Amapá</option>
+              </select>
+            </div>
+            <div class="col">
+              <label for="dem-contato">Contato</label>
+              <select id="dem-contato">
+                <option value="">Selecione...</option>
               </select>
             </div>
           </div>
 
           <div class="row">
+            <div class="col">
+              <label for="dem-telefone">Telefone</label>
+              <input type="text" id="dem-telefone" placeholder="Automático ao escolher contato" />
+            </div>
             <div class="col">
               <label for="dem-assunto">Assunto</label>
               <input type="text" id="dem-assunto" />
@@ -189,15 +193,23 @@
         </form>
       </section>
 
+      <!-- LISTA DE DEMANDAS -->
       <section class="panel" id="sec-lista-demandas">
         <div class="panel-header">
           <h2>Demandas</h2>
           <div class="filters">
             <input type="text" id="filtro-busca" placeholder="Buscar por descrição, assunto ou código..." />
+
             <label class="inline">
               <input type="checkbox" id="filtro-ocultar-concluidas" />
               Ocultar concluídas
             </label>
+
+            <label class="inline" id="box-consultar-todas">
+              <input type="checkbox" id="filtro-consultar-todas" />
+              Consultar todas
+            </label>
+
             <select id="filtro-status">
               <option value="TODOS">Todos Status</option>
               <option value="ABERTA">Aberta</option>
@@ -206,9 +218,10 @@
               <option value="ENCAMINHADA">Encaminhada</option>
               <option value="CONCLUÍDA">Concluída</option>
             </select>
-            <select id="filtro-atendente"></select>
+
+            <select id="filtro-suporte"></select>
             <select id="filtro-programador"></select>
-            <select id="filtro-municipio"></select>
+            <select id="filtro-cliente"></select>
             <select id="filtro-estado"></select>
             <select id="filtro-tipo-entidade"></select>
           </div>
@@ -219,7 +232,7 @@
             <thead>
               <tr>
                 <th>Código</th>
-                <th>Município</th>
+                <th>Cliente</th>
                 <th>Assunto</th>
                 <th>Status</th>
                 <th>Prioridade</th>
@@ -232,13 +245,79 @@
         <p id="total-demandas" class="status-text"></p>
       </section>
 
+      <!-- CADASTRO DE CLIENTES (SUPORTE/GESTOR) -->
+      <section class="panel wide" id="sec-clientes">
+        <div class="panel-header">
+          <h2>Cadastro de Clientes</h2>
+        </div>
+
+        <form id="form-cliente" class="form-grid">
+          <div class="row">
+            <div class="col">
+              <label for="cli-cliente">Cliente</label>
+              <input id="cli-cliente" type="text" placeholder="Ex: CRATEUS" />
+            </div>
+            <div class="col">
+              <label for="cli-estado">Estado</label>
+              <input id="cli-estado" type="text" placeholder="Ex: CEARA" />
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col">
+              <label for="cli-contato">Contato</label>
+              <input id="cli-contato" type="text" placeholder="Ex: ALLISSON" />
+            </div>
+            <div class="col">
+              <label for="cli-telefone">Telefone</label>
+              <input id="cli-telefone" type="text" placeholder="Ex: 8599999" />
+            </div>
+          </div>
+
+          <button class="btn primary" type="submit">Salvar Cliente</button>
+          <p class="hint" id="clientes-status"></p>
+        </form>
+
+        <div class="table-wrapper" style="margin-top:10px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>Estado</th>
+                <th>Contato</th>
+                <th>Telefone</th>
+                <th style="width:160px;">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-clientes"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- PAINEL DO GESTOR -->
       <section class="panel wide" id="sec-painel-gestor">
         <div class="panel-header">
-          <h2>Painel do Gestor – Usuários</h2>
+          <h2>Painel do Gestor</h2>
         </div>
-        <p class="hint">
-          Aqui o gestor aprova cadastros, altera tipo/unidade, inativa ou edita nome/email.
-        </p>
+
+        <!-- TOP 10 -->
+        <div class="acoes-grid" style="margin-bottom:10px;">
+          <div class="acao-card">
+            <h4>Top 10 – Últimas cadastradas</h4>
+            <ul id="top10-cadastradas" class="lista-atualizacoes"></ul>
+          </div>
+          <div class="acao-card">
+            <h4>Top 10 – Últimas concluídas</h4>
+            <ul id="top10-concluidas" class="lista-atualizacoes"></ul>
+          </div>
+        </div>
+
+        <!-- USUÁRIOS -->
+        <div class="panel-header" style="margin-top:6px;">
+          <h2>Usuários</h2>
+          <span class="status-bar" id="usuarios-gestor-status"></span>
+        </div>
+
         <div class="table-wrapper">
           <table>
             <thead>
@@ -276,10 +355,11 @@
         <h3>Resumo</h3>
         <div class="detalhes-grid">
           <div><strong>Código:</strong> <span id="det-codigo"></span></div>
-          <div><strong>Município:</strong> <span id="det-municipio"></span></div>
-          <div><strong>Tipo Entidade:</strong> <span id="det-tipo-entidade"></span></div>
-          <div><strong>Contato Cliente:</strong> <span id="det-contato-cliente"></span></div>
+          <div><strong>Cliente:</strong> <span id="det-cliente"></span></div>
           <div><strong>Estado:</strong> <span id="det-estado"></span></div>
+          <div><strong>Contato:</strong> <span id="det-contato"></span></div>
+          <div><strong>Telefone:</strong> <span id="det-telefone"></span></div>
+          <div><strong>Tipo Entidade:</strong> <span id="det-tipo-entidade"></span></div>
           <div><strong>Assunto:</strong> <span id="det-assunto"></span></div>
           <div class="full"><strong>Descrição:</strong> <span id="det-descricao"></span></div>
           <div><strong>Programador:</strong> <span id="det-programador"></span></div>
@@ -287,7 +367,7 @@
           <div><strong>Forma Atendimento:</strong> <span id="det-forma-atendimento"></span></div>
           <div><strong>Prioridade:</strong> <span id="det-prioridade"></span></div>
           <div><strong>Status:</strong> <span id="det-status"></span></div>
-          <div><strong>Atendente:</strong> <span id="det-atendente"></span></div>
+          <div><strong>Suporte:</strong> <span id="det-suporte"></span></div>
           <div><strong>Link Trello:</strong> <span id="det-link-trello"></span></div>
           <div><strong>Link Email:</strong> <span id="det-link-email"></span></div>
           <div><strong>Criado em:</strong> <span id="det-criado-em"></span></div>
@@ -302,13 +382,13 @@
             <label for="sel-encaminhar-usuario">Encaminhar para</label>
             <select id="sel-encaminhar-usuario"></select>
             <button id="btn-encaminhar" class="btn primary" type="button">Encaminhar</button>
-            <p class="hint">Isso atualiza Programador e Encaminhar Para e muda status para ENCAMINHADA.</p>
+            <p class="hint">Se o destino não for PROGRAMADOR, o campo Programador não muda.</p>
           </div>
 
           <div class="acao-card" id="card-editar">
             <h4>Editar</h4>
             <button id="btn-editar-demanda" class="btn secondary" type="button">Editar campos</button>
-            <p class="hint">Somente o criador (Atendente) ou Gestor.</p>
+            <p class="hint">Somente o criador (SUPORTE) ou Gestor.</p>
           </div>
 
           <div class="acao-card danger" id="card-excluir">
@@ -326,7 +406,7 @@
         <form id="form-atualizacao-demanda" class="form-atualizacao">
           <textarea id="nova-atualizacao-texto" placeholder="Registrar novo andamento..."></textarea>
           <button type="submit" class="btn primary">Adicionar atualização</button>
-          <p class="hint">A atualização sempre registra o nome do usuário logado.</p>
+          <p class="hint">Você pode editar/excluir seu próprio andamento. Gestor pode em todos.</p>
         </form>
       </div>
     </div>

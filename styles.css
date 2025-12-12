@@ -204,7 +204,10 @@ tbody tr:hover{ background:#f3f4f6; }
   font-size:11px;
 }
 .btn-mini:hover{ background:#f3f4f6; }
-.btn-mini:disabled{ opacity:.5; cursor:not-allowed; }
+.btn-mini:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+}
 
 /* Modal */
 .modal-overlay{
@@ -311,6 +314,17 @@ tbody tr:hover{ background:#f3f4f6; }
 }
 .btn-xs:hover{ background:#f3f4f6; }
 .acao-botoes{ display:flex; flex-wrap:wrap; gap:4px; }
+
+.btn-link-mini{
+  padding:2px 6px;
+  font-size:11px;
+  border-radius:999px;
+  border:1px solid #d1d5db;
+  background:#fff;
+  cursor:pointer;
+  margin-left:6px;
+}
+.btn-link-mini:hover{ background:#f3f4f6; }
 
 @media (max-width: 1050px){
   .layout{ grid-template-columns: 1fr; }
