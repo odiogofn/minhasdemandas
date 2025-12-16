@@ -38,7 +38,7 @@ function hide(id){ const el = byId(id); if(el) el.classList.add("hidden"); }
 // ==========================
 // TABS (UI)
 // ==========================
-const TAB_SECTION_IDS = ["sec-lista-demandas","sec-cadastro-demanda","sec-clientes"];
+const TAB_SECTION_IDS = ["sec-lista-demandas","sec-cadastro-demanda","sec-clientes","sec-usuarios"];
 
 function setActiveTab(sectionId){
   // Garante que apenas uma seção esteja visível por vez (entre as 3 abas)
@@ -74,9 +74,12 @@ function validarSenhaSimples(senha){
   return /^[A-Za-z0-9]{1,10}$/.test(senha);
 }
 
-function ehGestor(){ return currentUserProfile && currentUserProfile.tipo === "GESTOR"; }
-function ehSuporte(){ return currentUserProfile && currentUserProfile.tipo === "SUPORTE"; }
-function ehProgramador(){ return currentUserProfile && currentUserProfile.tipo === "PROGRAMADOR"; }
+function tipoPerfil(){
+  return (currentUserProfile?.tipo || "").toString().trim().toUpperCase();
+}
+function ehGestor(){ return tipoPerfil() === "GESTOR"; }
+function ehSuporte(){ return tipoPerfil() === "SUPORTE"; }
+function ehProgramador(){ return tipoPerfil() === "PROGRAMADOR"; }
 
 function setStatusBar(texto){ setText("status-bar", texto); }
 function setStatusClientes(texto){ setText("status-clientes", texto); }
@@ -133,14 +136,17 @@ function mostrarTelaAuth(){
 function ajustarInterfacePorPerfil(){
   const ajudaEl = byId("ajuda-perfil");
 
-  // Painel do gestor e gestão de usuários: apenas gestor
+  // Painel do gestor (Top 10) está fora das abas; mantemos oculto para não poluir a navegação.
+  hide("sec-painel-gestor");
+
+// Cadastro de usuários: apenas gestor
   if(ehGestor()){
-    show("sec-painel-gestor");
+    show("sec-usuarios");
   } else {
-    hide("sec-painel-gestor");
+    hide("sec-usuarios");
   }
 
-  // Cadastro de clientes: gestor e suporte
+// Cadastro de clientes: gestor e suporte
   if(ehGestor() || ehSuporte()){
     show("sec-clientes");
   } else {
@@ -157,6 +163,7 @@ function ajustarInterfacePorPerfil(){
   // Tabs: mostrar/ocultar botões conforme o perfil
   const btnClientes = byId("tab-clientes");
   const btnCadDemanda = byId("tab-cad-demanda");
+  const btnUsuarios = byId("tab-usuarios");
 
   if(btnClientes){
     if(ehGestor() || ehSuporte()) btnClientes.classList.remove("hidden");
@@ -166,6 +173,11 @@ function ajustarInterfacePorPerfil(){
   if(btnCadDemanda){
     if(ehGestor() || ehSuporte()) btnCadDemanda.classList.remove("hidden");
     else btnCadDemanda.classList.add("hidden");
+  }
+
+  if(btnUsuarios){
+    if(ehGestor()) btnUsuarios.classList.remove("hidden");
+    else btnUsuarios.classList.add("hidden");
   }
 
   // Se a aba atual ficou inacessível, troca para a primeira disponível
@@ -191,7 +203,7 @@ function mostrarApp(){
   hide("auth-container");
   show("app-container");
 
-  setText("user-label", `${currentUserProfile.nome} (${currentUserProfile.tipo} · ${currentUserProfile.unidade || "-"})`);
+  setText("user-label", `${currentUserProfile.nome} (${tipoPerfil()} · ${currentUserProfile.unidade || "-"})`);
   ajustarInterfacePorPerfil();
 
   // Aba inicial
@@ -907,15 +919,14 @@ function renderizarDemandas(){
     });
 
     // ✅ permissões
-    if(somenteLeitura){
+    if(somenteLeitura && !ehGestor()){
       tr.querySelector('[data-action="editar"]').disabled = true;
       tr.querySelector('[data-action="excluir"]').disabled = true;
     } else if(!podeEditarOuExcluirDemanda(d)){
       tr.querySelector('[data-action="editar"]').disabled = true;
       tr.querySelector('[data-action="excluir"]').disabled = true;
     }
-
-    tbody.appendChild(tr);
+tbody.appendChild(tr);
   }
 
   setText("total-demandas", `Total: ${lista.length}`);
@@ -1037,7 +1048,7 @@ async function abrirModalDemanda(demandaId){
   setText("det-criado-em", formatarDataHoraBr(d.created_at));
 
   // Ações: encaminhar
-  if(podeEncaminharDemanda(d) && !filtrosAtuais.consultarTodas){
+  if(podeEncaminharDemanda(d) && (!filtrosAtuais.consultarTodas || ehGestor())){
     show("card-encaminhar");
     await popularSelectEncaminhar(d);
   } else {
@@ -1045,7 +1056,7 @@ async function abrirModalDemanda(demandaId){
   }
 
   // Editar/Excluir
-  if(podeEditarOuExcluirDemanda(d) && !filtrosAtuais.consultarTodas){
+  if(podeEditarOuExcluirDemanda(d) && (!filtrosAtuais.consultarTodas || ehGestor())){
     show("card-editar");
     show("card-excluir");
   } else {
@@ -1374,6 +1385,30 @@ function onBuscaTextoKeyup(){ filtrosAtuais.buscaTexto = byId("filtro-busca").va
 // =========================
 // GESTOR: usuários + top10
 // =========================
+
+function atualizarAvisoUsuariosPendentes(lista){
+  const pendentes = (lista || []).filter(u => (u.status || "").toUpperCase() === "PENDENTE").length;
+  const badge = byId("badge-pendentes");
+  if(badge){
+    if(pendentes > 0){
+      badge.textContent = String(pendentes);
+      badge.classList.remove("hidden");
+    } else {
+      badge.textContent = "";
+      badge.classList.add("hidden");
+    }
+  }
+
+  // Aviso uma vez por sessão (pra não ficar enchendo o saco)
+  if(pendentes > 0 && ehGestor()){
+    const key = "avisou_pendentes";
+    if(!sessionStorage.getItem(key)){
+      alert(`Atenção: há ${pendentes} usuário(s) com status PENDENTE aguardando aprovação.`);
+      sessionStorage.setItem(key, "1");
+    }
+  }
+}
+
 async function carregarUsuariosGestor(){
   if(!ehGestor()) return;
 
@@ -1388,6 +1423,7 @@ async function carregarUsuariosGestor(){
     return;
   }
 
+  atualizarAvisoUsuariosPendentes(data || []);
   renderizarUsuariosGestor(data || []);
 }
 
