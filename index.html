@@ -96,6 +96,7 @@
         <button class="tab-btn active" type="button" id="tab-demandas" data-tab="sec-lista-demandas">DEMANDAS</button>
         <button class="tab-btn" type="button" id="tab-cad-demanda" data-tab="sec-cadastro-demanda">CADASTRAR DEMANDA</button>
         <button class="tab-btn" type="button" id="tab-clientes" data-tab="sec-clientes">CADASTRO DE CLIENTES</button>
+        <button class="tab-btn hidden" type="button" id="tab-usuarios" data-tab="sec-usuarios">CADASTRO DE USUÁRIOS <span id="badge-pendentes" class="tab-badge hidden"></span></button>
       </nav>
       <!-- CADASTRO DE CLIENTES (apenas GESTOR e SUPORTE) -->
       <section class="panel" id="sec-clientes">
@@ -347,7 +348,32 @@
         <p id="total-demandas" class="status-text"></p>
       </section>
 
-      <!-- PAINEL DO GESTOR (APENAS GESTOR) -->
+      
+      <!-- CADASTRO DE USUÁRIOS (APENAS GESTOR) -->
+      <section class="panel wide hidden" id="sec-usuarios">
+        <div class="panel-header">
+          <h2>Cadastro de Usuários</h2>
+          <span class="hint">Apenas Gestor visualiza e gerencia usuários (Ativar/Inativar/Editar/Excluir).</span>
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Email</th>
+                <th>Tipo</th>
+                <th>Unidade</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-usuarios"></tbody>
+          </table>
+        </div>
+      </section>
+
+<!-- PAINEL DO GESTOR (APENAS GESTOR) -->
       <section class="panel wide hidden" id="sec-painel-gestor">
         <div class="panel-header">
           <h2>Painel do Gestor</h2>
@@ -377,27 +403,6 @@
               </table>
             </div>
           </div>
-        </div>
-
-        <hr class="sep" />
-
-        <h3 class="subttl">Gestão de Usuários</h3>
-        <p class="hint">Apenas Gestor visualiza e gerencia usuários.</p>
-
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Email</th>
-                <th>Tipo</th>
-                <th>Unidade</th>
-                <th>Status</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody id="tabela-usuarios"></tbody>
-          </table>
         </div>
       </section>
     </main>
