@@ -1,233 +1,30 @@
-/* =========================
-   RESET / BASE
-========================= */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  font-family: Arial, Helvetica, sans-serif;
+body { font-family: Arial; background:#f4f4f4; }
+.hidden { display:none; }
+
+.topo {
+  background:#222;
+  color:#fff;
+  padding:10px;
+  display:flex;
+  justify-content:space-between;
 }
 
-body {
-  background: #f4f6f9;
-  color: #333;
-}
-
-.hidden {
-  display: none !important;
-}
-
-h1, h2 {
-  margin-bottom: 12px;
-}
-
-/* =========================
-   BOTÕES
-========================= */
-.btn {
-  padding: 8px 14px;
-  border-radius: 4px;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.btn.primary {
-  background: #2563eb;
-  color: #fff;
-}
-
-.btn.secondary {
-  background: #059669;
-  color: #fff;
-}
-
-.btn.ghost {
-  background: transparent;
-  color: #2563eb;
-}
-
-.btn:hover {
-  opacity: 0.9;
-}
-
-/* =========================
-   AUTH
-========================= */
-.auth-card {
-  max-width: 900px;
-  margin: 50px auto;
-  background: #fff;
-  padding: 30px;
-  border-radius: 6px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-}
-
-.auth-columns {
-  display: flex;
-  gap: 30px;
-}
-
-.auth-box {
-  flex: 1;
-}
-
-.auth-box label {
-  display: block;
-  margin-top: 10px;
-  font-weight: bold;
-}
-
-.auth-box input,
-.auth-box select {
-  width: 100%;
-  padding: 8px;
-  margin-top: 4px;
-}
-
-/* =========================
-   TOPBAR
-========================= */
-.topbar {
-  background: #1e293b;
-  color: #fff;
-  padding: 12px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.topbar span {
-  margin-left: 10px;
-}
-
-.perfil-hint {
-  margin-left: 15px;
-  font-size: 13px;
-  opacity: 0.8;
-}
-
-/* =========================
-   ABAS
-========================= */
-.tabs {
-  background: #fff;
-  display: flex;
-  border-bottom: 1px solid #ddd;
-}
-
-.tab-btn {
-  padding: 12px 18px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-weight: bold;
-  color: #555;
-}
-
-.tab-btn.active {
-  border-bottom: 3px solid #2563eb;
-  color: #2563eb;
-}
-
-.tab-btn:hover {
-  background: #f1f5f9;
-}
-
-/* =========================
-   CONTEÚDO
-========================= */
-.layout {
-  padding: 20px;
-}
+.tabs { background:#ddd; padding:5px; }
+.tab-btn { margin-right:5px; cursor:pointer; }
+.tab-btn.active { font-weight:bold; }
 
 .tab-content {
-  background: #fff;
-  padding: 20px;
-  border-radius: 6px;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+  background:#fff;
+  padding:10px;
+  margin-top:5px;
 }
 
-/* =========================
-   FORMULÁRIOS
-========================= */
-label {
-  display: block;
-  margin-top: 12px;
-  font-weight: bold;
+input, select, textarea, button {
+  display:block;
+  margin:5px 0;
+  padding:5px;
+  width:100%;
 }
 
-input, textarea, select {
-  width: 100%;
-  padding: 8px;
-  margin-top: 4px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
-
-textarea {
-  resize: vertical;
-  min-height: 80px;
-}
-
-input[readonly] {
-  background: #f1f5f9;
-}
-
-/* =========================
-   TABELAS
-========================= */
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 20px;
-}
-
-thead {
-  background: #e5e7eb;
-}
-
-th, td {
-  padding: 10px;
-  border: 1px solid #d1d5db;
-  text-align: left;
-}
-
-th {
-  font-weight: bold;
-}
-
-tbody tr:nth-child(even) {
-  background: #f9fafb;
-}
-
-tbody tr:hover {
-  background: #eef2ff;
-}
-
-/* =========================
-   STATUS / TEXTO
-========================= */
-#auth-status {
-  margin-top: 15px;
-  font-size: 14px;
-  color: #b91c1c;
-}
-
-/* =========================
-   RESPONSIVO
-========================= */
-@media (max-width: 768px) {
-  .auth-columns {
-    flex-direction: column;
-  }
-
-  .tabs {
-    flex-wrap: wrap;
-  }
-
-  .tab-btn {
-    flex: 1 1 50%;
-    text-align: center;
-  }
-}
+table { width:100%; border-collapse:collapse; }
+th, td { border:1px solid #ccc; padding:5px; }

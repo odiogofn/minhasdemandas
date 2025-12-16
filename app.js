@@ -1,186 +1,87 @@
-// =========================
-// CONFIGURAÇÃO SUPABASE
-// =========================
+// ======================================================
+// APP.JS - PARTE 1/5
+// Configuração, estado global, utilidades, auth e abas
+// ======================================================
+
+// ----------------------
+// SUPABASE
+// ----------------------
 const SUPABASE_URL = "https://cmxepgkkdvyfraesvqly.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNteGVwZ2trZHZ5ZnJhZXN2cWx5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3ODA2NDksImV4cCI6MjA4MDM1NjY0OX0.rQMjA0pyJ2gWvPlyuQr0DccdkUs24NQTdsQvgiN2QXY";
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-let currentUserProfile = null;
-let currentSession = null;
 
+// ----------------------
+// ESTADO GLOBAL
+// ----------------------
+let currentSession = null;
+let currentUserProfile = null;
+
+let clientesCache = [];
 let demandasCache = [];
 let usuariosCache = [];
-let clientesCache = [];
 
 let tagsAtuais = [];
 
 let filtrosAtuais = {
   buscaTexto: "",
-  ocultarConcluidas: false,
   consultarTodas: false,
-  status: "TODOS",
-  atendente: "TODOS",
-  programador: "TODOS",
-  municipio: "TODOS",
-  estado: "TODOS",
-  tipoEntidade: "TODOS",
 };
 
-// =========================
-// UTILITÁRIOS
-// =========================
-function byId(id){ return document.getElementById(id); }
-function setText(id, text){ const el = byId(id); if(el) el.textContent = text; }
-function show(id){ const el = byId(id); if(el) el.classList.remove("hidden"); }
-function hide(id){ const el = byId(id); if(el) el.classList.add("hidden"); }
+// ----------------------
+// HELPERS
+// ----------------------
+const byId = (id) => document.getElementById(id);
 
-function formatarDataHoraBr(dateStr){
-  if(!dateStr) return "";
-  const d = new Date(dateStr);
-  if(isNaN(d.getTime())) return dateStr;
-  return d.toLocaleString("pt-BR");
+function show(id) {
+  const el = byId(id);
+  if (el) el.classList.remove("hidden");
 }
 
-function validarSenhaSimples(senha){
-  return /^[A-Za-z0-9]{1,10}$/.test(senha);
+function hide(id) {
+  const el = byId(id);
+  if (el) el.classList.add("hidden");
 }
 
-// =========================
-// PERFIS (CORREÇÃO DEFINITIVA)
-// =========================
-function tipoPerfil(){
-  return (currentUserProfile?.tipo || "").toString().trim().toUpperCase();
-}
-function ehGestor(){ return tipoPerfil() === "GESTOR"; }
-function ehSuporte(){ return tipoPerfil() === "SUPORTE"; }
-function ehProgramador(){ return tipoPerfil() === "PROGRAMADOR"; }
-
-// =========================
-// STATUS
-// =========================
-function setStatusBar(texto){ setText("status-bar", texto); }
-function setStatusClientes(texto){ setText("status-clientes", texto); }
-
-// =========================
-// PERMISSÕES DEMANDA
-// =========================
-function podeEditarOuExcluirDemanda(d){
-  if(!currentUserProfile || !d) return false;
-  if(ehGestor()) return true;
-  if(ehSuporte() && d.user_id === currentUserProfile.id) return true;
-  return false;
+function tipoPerfil() {
+  return (currentUserProfile?.tipo || "").trim().toUpperCase();
 }
 
-function podeEncaminharDemanda(d){
-  if(!currentUserProfile || !d) return false;
-  if(ehGestor()) return true;
-  if(ehSuporte() && d.user_id === currentUserProfile.id) return true;
-  return false;
+function ehGestor() {
+  return tipoPerfil() === "GESTOR";
 }
 
-// =========================
-// PERMISSÕES ATUALIZAÇÃO
-// =========================
-function podeEditarOuExcluirAtualizacao(a){
-  if(!currentUserProfile || !a) return false;
-  if(ehGestor()) return true;
-  return a.usuario_id === currentUserProfile.id;
+function ehSuporte() {
+  return tipoPerfil() === "SUPORTE";
 }
 
-// =========================
+function ehProgramador() {
+  return tipoPerfil() === "PROGRAMADOR";
+}
+
+// ----------------------
 // AUTH
-// =========================
-async function inicializarApp(){
-  registrarListeners();
+// ----------------------
+async function login() {
+  const email = byId("login-email").value.trim();
+  const senha = byId("login-senha").value;
 
-  const { data, error } = await supabaseClient.auth.getSession();
-  if(error) console.error("Erro ao obter sessão:", error);
-  currentSession = data?.session || null;
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password: senha,
+  });
 
-  if(currentSession){
-    await carregarPerfilUsuarioAtual();
-    currentUserProfile ? mostrarApp() : mostrarTelaAuth();
-  } else {
-    mostrarTelaAuth();
-  }
-}
-
-function mostrarTelaAuth(){
-  show("auth-container");
-  hide("app-container");
-  setText("auth-status", "Informe seus dados para entrar ou se cadastrar.");
-}
-
-function ajustarInterfacePorPerfil(){
-  const ajudaEl = byId("ajuda-perfil");
-
-  // Painel gestor
-  ehGestor() ? show("sec-painel-gestor") : hide("sec-painel-gestor");
-
-  // Clientes + Cadastro demanda para Gestor/Suporte
-  (ehGestor() || ehSuporte()) ? show("sec-clientes") : hide("sec-clientes");
-  (ehGestor() || ehSuporte()) ? show("sec-cadastro-demanda") : hide("sec-cadastro-demanda");
-
-  if(ehProgramador()){
-    ajudaEl.textContent = "Perfil Programador: registre andamentos das demandas.";
-  } else if(ehSuporte()){
-    ajudaEl.textContent = "Perfil Suporte: cadastre e gerencie demandas.";
-  } else if(ehGestor()){
-    ajudaEl.textContent = "Perfil Gestor: visão completa e gestão.";
-  }
-}
-
-function mostrarApp(){
-  hide("auth-container");
-  show("app-container");
-
-  setText(
-    "user-label",
-    `${currentUserProfile.nome} (${tipoPerfil()} · ${currentUserProfile.unidade || "-"})`
-  );
-
-  ajustarInterfacePorPerfil();
-  carregarUsuariosParaEncaminhar();
-  carregarClientes();
-  carregarDemandas();
-
-  if(ehGestor()){
-    carregarUsuariosGestor();
-  }
-}
-
-// =========================
-// PERFIL USUÁRIO
-// =========================
-async function carregarPerfilUsuarioAtual(){
-  const { data } = await supabaseClient.auth.getUser();
-  if(!data?.user) return;
-
-  const { data: perfil, error } = await supabaseClient
-    .from("usuarios")
-    .select("*")
-    .eq("id", data.user.id)
-    .single();
-
-  if(error || !perfil){
-    currentUserProfile = null;
+  if (error) {
+    alert("Erro ao autenticar: " + error.message);
     return;
   }
 
-  if((perfil.status || "").toUpperCase() !== "ATIVO"){
-    await supabaseClient.auth.signOut();
-    currentUserProfile = null;
-    mostrarTelaAuth();
-    return;
-  }
-
-  currentUserProfile = perfil;
+  currentSession = data.session;
+  await carregarPerfilUsuario();
+  iniciarApp();
 }
 
-// =========================
-// CADASTRO NOVO USUÁRIO
-// =========================
-async function cadastrarNovoUsuario(){
+async function cadastrarUsuario() {
   const nome = byId("cad-nome").value.trim().toUpperCase();
   const email = byId("cad-email").value.trim().toLowerCase();
   const dtNasc = byId("cad-dt-nasc").value;
@@ -189,330 +90,275 @@ async function cadastrarNovoUsuario(){
   const senha = byId("cad-senha").value;
   const senha2 = byId("cad-senha2").value;
 
-  if(!nome || !email || !dtNasc || !unidade || !tipo || !senha || !senha2){
-    setText("auth-status", "Preencha todos os campos.");
+  if (!nome || !email || !senha || senha !== senha2) {
+    alert("Dados inválidos");
     return;
   }
-  if(!validarSenhaSimples(senha)){
-    setText("auth-status", "Senha deve ter até 10 caracteres (letras/números).");
-    return;
-  }
-  if(senha !== senha2){
-    setText("auth-status", "Senhas não conferem.");
-    return;
-  }
-
-  setText("auth-status", "Cadastrando...");
 
   const { data, error } = await supabaseClient.auth.signUp({
     email,
     password: senha,
   });
 
-  if(error){
-    console.error("Erro signUp:", error);
-    setText("auth-status", "Erro: " + error.message);
+  if (error) {
+    alert(error.message);
     return;
   }
 
-  const userId = data?.user?.id;
-  if(!userId){
-    setText("auth-status", "Erro: não foi possível obter o ID do usuário.");
-    return;
-  }
-
-  const { error: errIns } = await supabaseClient.from("usuarios").insert({
-    id: userId,
+  await supabaseClient.from("usuarios").insert({
+    id: data.user.id,
     nome,
     email,
     data_nascimento: dtNasc,
     unidade,
-    tipo: tipo.toUpperCase(),
+    tipo,
     status: "PENDENTE",
   });
 
-  if(errIns){
-    console.error("Erro inserir perfil:", errIns);
-    setText("auth-status", "Erro ao criar perfil: " + errIns.message);
-    return;
-  }
-
-  setText("auth-status", "Cadastro enviado! Aguarde aprovação do gestor.");
+  alert("Cadastro enviado. Aguarde aprovação do gestor.");
 }
 
-// =========================
-// LOGIN / LOGOUT
-// =========================
-async function login(){
-  const email = byId("login-email").value.trim().toLowerCase();
-  const senha = byId("login-senha").value;
+// ----------------------
+// PERFIL
+// ----------------------
+async function carregarPerfilUsuario() {
+  const { data } = await supabaseClient.auth.getUser();
+  if (!data?.user) return;
 
-  if(!email || !senha){
-    setText("auth-status", "Informe email e senha.");
+  const { data: perfil } = await supabaseClient
+    .from("usuarios")
+    .select("*")
+    .eq("id", data.user.id)
+    .single();
+
+  if (!perfil || perfil.status !== "ATIVO") {
+    await supabaseClient.auth.signOut();
+    alert("Usuário não aprovado");
     return;
   }
 
-  setText("auth-status", "Entrando...");
-
-  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: senha });
-  if(error){
-    console.error("Erro login:", error);
-    setText("auth-status", "Erro ao autenticar: " + error.message);
-    return;
-  }
-
-  currentSession = data?.session || null;
-  await carregarPerfilUsuarioAtual();
-  if(!currentUserProfile){
-    setText("auth-status", "Usuário não aprovado ou perfil inexistente.");
-    return;
-  }
-
-  mostrarApp();
+  currentUserProfile = perfil;
 }
 
-async function logout(){
-  await supabaseClient.auth.signOut();
-  currentSession = null;
-  currentUserProfile = null;
-  mostrarTelaAuth();
+// ----------------------
+// INICIAR APP
+// ----------------------
+function iniciarApp() {
+  hide("auth-container");
+  show("app-container");
+
+  byId("user-label").innerText =
+    currentUserProfile.nome + " (" + tipoPerfil() + ")";
+
+  if (ehGestor()) show("tab-usuarios");
+
+  initTabs();
+  garantirOverlaysOcultos();
+
+  carregarClientes();
+  carregarDemandas();
+  if (ehGestor()) carregarUsuarios();
 }
 
-// =========================
-// CLIENTES (AGORA COM MUNICÍPIO / SEM CONTATO)
-// =========================
-async function carregarClientes(){
+// ----------------------
+// ABAS (FIX DEFINITIVO)
+// ----------------------
+function initTabs() {
+  const tabs = document.querySelectorAll(".tab-btn");
+  const contents = document.querySelectorAll(".tab-content");
+
+  tabs.forEach((btn) => {
+    btn.onclick = () => {
+      tabs.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+
+      contents.forEach((c) => {
+        c.classList.toggle("hidden", c.dataset.tab !== btn.dataset.tab);
+      });
+    };
+  });
+}
+
+// ----------------------
+// OVERLAYS
+// ----------------------
+function garantirOverlaysOcultos() {
+  ["modal-overlay", "modal-detalhes"].forEach((id) => {
+    const el = byId(id);
+    if (el) el.classList.add("hidden");
+  });
+}
+
+// ----------------------
+// EVENTOS BÁSICOS
+// ----------------------
+document.addEventListener("DOMContentLoaded", async () => {
+  byId("btn-login").onclick = login;
+  byId("btn-cadastrar").onclick = cadastrarUsuario;
+
+  const { data } = await supabaseClient.auth.getSession();
+  currentSession = data.session;
+
+  if (currentSession) {
+    await carregarPerfilUsuario();
+    if (currentUserProfile) iniciarApp();
+  }
+});
+// ======================================================
+// APP.JS - PARTE 2/5
+// CLIENTES (com município) + integração com DEMANDA
+// ======================================================
+
+// ----------------------
+// CLIENTES - CARREGAR
+// ----------------------
+async function carregarClientes() {
   const { data, error } = await supabaseClient
     .from("clientes")
     .select("*")
     .order("cliente", { ascending: true });
 
-  if(error){
-    console.error("Erro ao carregar clientes:", error);
+  if (error) {
+    console.error(error);
+    alert("Erro ao carregar clientes: " + error.message);
     return;
   }
+
   clientesCache = data || [];
-  renderizarTabelaClientes();
-  popularSelectClienteDemanda();
-  popularFiltrosCliente();
+  preencherTabelaClientes();
+  preencherSelectClienteDemanda();
 }
 
-function renderizarTabelaClientes(){
+// ----------------------
+// CLIENTES - TABELA
+// ----------------------
+function preencherTabelaClientes() {
   const tbody = byId("tb-clientes");
-  if(!tbody) return;
+  if (!tbody) return;
+
   tbody.innerHTML = "";
 
-  clientesCache.forEach(c => {
+  clientesCache.forEach((c) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${c.cliente || ""}</td>
       <td>${(c.tipo_entidade || c.tipo || "")}</td>
-      <td>${c.estado || ""}</td>
-      <td>${c.municipio || ""}</td>
-      <td>${c.telefone || ""}</td>
-      <td class="actions">
-        <button class="btn ghost" data-act="edit" data-id="${c.id}">Editar</button>
-        <button class="btn danger" data-act="del" data-id="${c.id}">Excluir</button>
+      <td>${(c.municipio || "")}</td>
+      <td>
+        <button data-del="${c.id}">Excluir</button>
       </td>
     `;
     tbody.appendChild(tr);
   });
 
-  tbody.querySelectorAll("button[data-act='edit']").forEach(b => {
-    b.addEventListener("click", () => editarCliente(b.dataset.id));
-  });
-  tbody.querySelectorAll("button[data-act='del']").forEach(b => {
-    b.addEventListener("click", () => excluirCliente(b.dataset.id));
+  tbody.querySelectorAll("button[data-del]").forEach((btn) => {
+    btn.onclick = async () => {
+      const id = btn.getAttribute("data-del");
+      if (!confirm("Excluir cliente?")) return;
+      await excluirCliente(id);
+    };
   });
 }
 
-function popularSelectClienteDemanda(){
+// ----------------------
+// CLIENTES - SELECT DEMANDA
+// ----------------------
+function preencherSelectClienteDemanda() {
   const sel = byId("dem-cliente");
-  if(!sel) return;
+  if (!sel) return;
 
   sel.innerHTML = `<option value="">Selecione</option>`;
-  clientesCache.forEach(c => {
+
+  clientesCache.forEach((c) => {
     const opt = document.createElement("option");
     opt.value = c.id;
     opt.textContent = c.cliente;
     opt.dataset.tipo_entidade = (c.tipo_entidade || c.tipo || "");
-    opt.dataset.estado = c.estado || "";
-    opt.dataset.municipio = c.municipio || "";
-    opt.dataset.telefone = c.telefone || "";
+    opt.dataset.municipio = (c.municipio || "");
     sel.appendChild(opt);
   });
+
+  sel.onchange = () => {
+    const opt = sel.selectedOptions[0];
+    byId("dem-tipo-entidade").value = opt?.dataset.tipo_entidade || "";
+    byId("dem-municipio").value = opt?.dataset.municipio || "";
+  };
 }
 
-function popularFiltrosCliente(){
-  // Mantém filtros já existentes no seu projeto (municipio/estado/tipoEntidade)
-  const selMun = byId("filtro-municipio");
-  const selEst = byId("filtro-estado");
-  const selTipoEnt = byId("filtro-tipo-entidade");
-
-  if(selMun){
-    const set = new Set(clientesCache.map(c => (c.municipio || "").trim()).filter(Boolean));
-    selMun.innerHTML = `<option value="TODOS">Todos</option>` + [...set].sort().map(v=>`<option>${v}</option>`).join("");
-  }
-  if(selEst){
-    const set = new Set(clientesCache.map(c => (c.estado || "").trim()).filter(Boolean));
-    selEst.innerHTML = `<option value="TODOS">Todos</option>` + [...set].sort().map(v=>`<option>${v}</option>`).join("");
-  }
-  if(selTipoEnt){
-    const set = new Set(clientesCache.map(c => (c.tipo_entidade || c.tipo || "").trim()).filter(Boolean));
-    selTipoEnt.innerHTML = `<option value="TODOS">Todos</option>` + [...set].sort().map(v=>`<option>${v}</option>`).join("");
-  }
-}
-
-async function salvarCliente(e){
-  e.preventDefault();
-  if(!(ehGestor() || ehSuporte())){
-    alert("Apenas Gestor ou Suporte podem cadastrar clientes.");
+// ----------------------
+// CLIENTES - SALVAR
+// (sem contato; com municipio)
+// ----------------------
+async function salvarCliente() {
+  if (!(ehGestor() || ehSuporte())) {
+    alert("Somente Gestor/Suporte");
     return;
   }
 
-  const cliente = byId("cli-nome").value.trim().toUpperCase();
-  const estado = byId("cli-estado").value;
-  const municipio = (byId("cli-municipio") ? byId("cli-municipio").value : "").trim().toUpperCase();
-  const telefone = byId("cli-telefone").value.trim();
-  const tipoEntidade = byId("cli-tipo").value;
+  const cliente = (byId("cli-nome").value || "").trim().toUpperCase();
+  const tipoEntidade = (byId("cli-tipo").value || "").trim().toUpperCase();
+  const estado = (byId("cli-estado").value || "").trim().toUpperCase();
+  const municipio = (byId("cli-municipio").value || "").trim().toUpperCase();
+  const telefone = (byId("cli-telefone").value || "").trim();
 
-  if(!cliente || !estado || !municipio || !telefone || !tipoEntidade){
-    alert("Preencha Cliente, Tipo Entidade, Estado, Município e Telefone.");
+  if (!cliente || !tipoEntidade || !estado || !municipio || !telefone) {
+    alert("Preencha Cliente, Tipo, Estado, Município e Telefone.");
     return;
   }
 
-  setStatusClientes("Salvando cliente...");
-
-  const payload = {
+  const { error } = await supabaseClient.from("clientes").insert({
     cliente,
     tipo_entidade: tipoEntidade,
     estado,
     municipio,
     telefone,
-  };
+  });
 
-  const { error } = await supabaseClient.from("clientes").insert(payload);
-
-  if(error){
-    console.error("Erro ao salvar cliente:", error);
-    setStatusClientes("Erro: " + error.message);
+  if (error) {
+    console.error(error);
     alert("Erro ao salvar cliente: " + error.message);
     return;
   }
 
-  byId("form-cliente").reset();
-  setStatusClientes("Cliente salvo com sucesso!");
-  await carregarClientes();
-}
-
-async function editarCliente(clienteId){
-  const c = clientesCache.find(x => x.id === clienteId);
-  if(!c) return;
-
-  const novoCliente = prompt("Cliente:", c.cliente || "");
-  if(novoCliente === null) return;
-
-  const novoTipoEntidade = prompt("Tipo Entidade (ex: CM, PM, AUTARQUIA, IPM, CONSORCIO):", (c.tipo_entidade || c.tipo || ""));
-  if(novoTipoEntidade === null) return;
-
-  const novoEstado = prompt("Estado:", c.estado || "");
-  if(novoEstado === null) return;
-
-  const novoMunicipio = prompt("Município:", c.municipio || "");
-  if(novoMunicipio === null) return;
-
-  const novoTelefone = prompt("Telefone:", c.telefone || "");
-  if(novoTelefone === null) return;
-
-  if(!novoCliente.trim() || !novoTipoEntidade.trim() || !novoEstado.trim() || !novoMunicipio.trim() || !novoTelefone.trim()){
-    alert("Preencha todos os campos obrigatórios.");
-    return;
-  }
-
-  const { error } = await supabaseClient.from("clientes").update({
-    cliente: novoCliente.trim().toUpperCase(),
-    tipo_entidade: novoTipoEntidade.trim().toUpperCase(),
-    estado: novoEstado.trim(),
-    municipio: novoMunicipio.trim().toUpperCase(),
-    telefone: novoTelefone.trim()
-  }).eq("id", clienteId);
-
-  if(error){
-    console.error("Erro ao editar cliente:", error);
-    alert("Erro ao editar cliente: " + error.message);
-    return;
-  }
+  // limpar
+  byId("cli-nome").value = "";
+  byId("cli-tipo").value = "";
+  byId("cli-estado").value = "";
+  byId("cli-municipio").value = "";
+  byId("cli-telefone").value = "";
 
   await carregarClientes();
 }
 
-async function excluirCliente(clienteId){
-  if(!confirm("Excluir este cadastro de cliente?")) return;
-
-  const { error } = await supabaseClient.from("clientes").delete().eq("id", clienteId);
-  if(error){
-    console.error("Erro ao excluir cliente:", error);
+// ----------------------
+// CLIENTES - EXCLUIR
+// ----------------------
+async function excluirCliente(id) {
+  const { error } = await supabaseClient.from("clientes").delete().eq("id", id);
+  if (error) {
+    console.error(error);
     alert("Erro ao excluir cliente: " + error.message);
     return;
   }
-
   await carregarClientes();
 }
 
-// =========================
-// USUÁRIOS PARA ENCAMINHAR
-// =========================
-async function carregarUsuariosParaEncaminhar(){
-  const { data, error } = await supabaseClient
-    .from("usuarios")
-    .select("id,nome,tipo,status")
-    .eq("status", "ATIVO")
-    .order("nome", { ascending:true });
+// ----------------------
+// EVENTO SALVAR CLIENTE (botão)
+// ----------------------
+document.addEventListener("DOMContentLoaded", () => {
+  const btnSalvarCliente = byId("btn-salvar-cliente");
+  if (btnSalvarCliente) btnSalvarCliente.onclick = salvarCliente;
+});
+// ======================================================
+// APP.JS - PARTE 3/5
+// DEMANDAS (campos completos + encaminhar + tags + filtros)
+// ======================================================
 
-  if(error){
-    console.error("Erro ao carregar usuários:", error);
-    return;
-  }
-
-  usuariosCache = data || [];
-  popularSelectEncaminhar();
-  popularSelectProgramador();
-}
-
-function popularSelectProgramador(){
-  const selProg = byId("dem-programador");
-  if(!selProg) return;
-
-  selProg.innerHTML = `<option value="">(não definido)</option>`;
-  usuariosCache
-    .filter(u => (u.tipo || "").toUpperCase() === "PROGRAMADOR")
-    .forEach(u => {
-      const opt = document.createElement("option");
-      opt.value = u.nome;
-      opt.textContent = u.nome;
-      selProg.appendChild(opt);
-    });
-}
-
-function popularSelectEncaminhar(){
-  const sel = byId("sel-encaminhar-usuario");
-  if(!sel) return;
-
-  sel.innerHTML = `<option value="">Selecione</option>`;
-  usuariosCache.forEach(u => {
-    const opt = document.createElement("option");
-    opt.value = u.id;
-    opt.textContent = `${u.nome} (${(u.tipo || "").toUpperCase()})`;
-    opt.dataset.tipo = (u.tipo || "").toUpperCase();
-    opt.dataset.nome = u.nome;
-    sel.appendChild(opt);
-  });
-}
-
-// =========================
-// DEMANDAS
-// =========================
-async function gerarCodigoDemanda(){
+// ----------------------
+// GERAR CÓDIGO DEMANDA
+// ----------------------
+async function gerarCodigoDemanda() {
   const ano = new Date().getFullYear();
   const prefixo = `D${ano}-`;
 
@@ -520,763 +366,645 @@ async function gerarCodigoDemanda(){
     .from("demandas")
     .select("codigo")
     .like("codigo", `${prefixo}%`)
-    .order("codigo", { ascending:false })
+    .order("codigo", { ascending: false })
     .limit(1);
 
-  if(error){
-    console.error("Erro ao gerar código:", error);
-    return `${prefixo}00001`;
-  }
+  if (error) return `${prefixo}00001`;
 
   const ultimo = data?.[0]?.codigo || `${prefixo}00000`;
-  const partes = ultimo.split("-");
-  let num = parseInt(partes[1], 10) || 0;
-  num++;
+  const num = parseInt(ultimo.split("-")[1] || "0", 10) + 1;
   return `${prefixo}${String(num).padStart(5, "0")}`;
 }
 
-function renderizarTags(){
+// ----------------------
+// TAGS (chips simples)
+// ----------------------
+function renderizarTags() {
   const cont = byId("tags-container");
-  if(!cont) return;
-  cont.innerHTML = "";
+  if (!cont) return;
 
-  tagsAtuais.forEach((t, idx) => {
-    const chip = document.createElement("span");
-    chip.className = "chip";
-    chip.textContent = t;
+  cont.innerHTML = "";
+  tagsAtuais.forEach((t, i) => {
+    const span = document.createElement("span");
+    span.className = "chip";
+    span.textContent = t;
 
     const x = document.createElement("button");
     x.type = "button";
-    x.className = "chip-x";
-    x.textContent = "×";
-    x.addEventListener("click", () => {
-      tagsAtuais.splice(idx, 1);
+    x.textContent = "x";
+    x.style.marginLeft = "6px";
+    x.onclick = () => {
+      tagsAtuais.splice(i, 1);
       renderizarTags();
-    });
+    };
 
-    chip.appendChild(x);
-    cont.appendChild(chip);
+    span.appendChild(x);
+    cont.appendChild(span);
   });
 }
 
-async function salvarDemanda(e){
-  e.preventDefault();
+document.addEventListener("DOMContentLoaded", () => {
+  const btnAddTag = byId("btn-add-tag");
+  if (btnAddTag) {
+    btnAddTag.onclick = () => {
+      const v = (byId("dem-tag").value || "").trim().toUpperCase();
+      if (!v) return;
+      if (!tagsAtuais.includes(v)) tagsAtuais.push(v);
+      byId("dem-tag").value = "";
+      renderizarTags();
+    };
+  }
+});
 
-  if(!(ehGestor() || ehSuporte())){
-    alert("Apenas Gestor ou Suporte podem cadastrar demandas.");
+// ----------------------
+// DEMANDAS - SALVAR
+// (tipoEntidade e municipio vêm do cliente)
+// ----------------------
+async function salvarDemanda() {
+  if (!(ehGestor() || ehSuporte())) {
+    alert("Somente Gestor/Suporte pode cadastrar demanda");
     return;
   }
-
-  // Município e Tipo Entidade vêm do cadastro de clientes (campos podem estar readonly)
-  const municipio = (byId("dem-municipio")?.value || "").trim().toUpperCase();
-  const tipoEntidade = (byId("dem-tipo-entidade")?.value || "").trim().toUpperCase();
-  const assunto = byId("dem-assunto").value.trim().toUpperCase();
-  const descricao = byId("dem-descricao").value.trim();
-  const programador = byId("dem-programador").value.trim();
-  const formaAtendimento = byId("dem-forma-atendimento").value.trim();
-  const prioridade = byId("dem-prioridade").value;
-  const statusDemanda = byId("dem-status").value;
-
-  const linkTrello = byId("dem-link-trello").value.trim();
-  const linkEmail = byId("dem-link-email").value.trim();
 
   const clienteId = byId("dem-cliente").value;
-  const cliSel = clientesCache.find(c => c.id === clienteId);
+  const cli = clientesCache.find((c) => c.id === clienteId);
 
-  if(!cliSel){
-    alert("Selecione um cliente cadastrado.");
+  if (!cli) {
+    alert("Selecione um cliente");
     return;
   }
-  if(!assunto || !descricao){
-    alert("Informe Assunto e Descrição.");
-    return;
-  }
-
-  setStatusBar("Salvando demanda...");
 
   const codigo = await gerarCodigoDemanda();
 
+  const assunto = (byId("dem-assunto").value || "").trim().toUpperCase();
+  const descricao = (byId("dem-descricao").value || "").trim();
+
+  const programador = (byId("dem-programador").value || "").trim();
+  const formaAtendimento = (byId("dem-forma-atendimento").value || "").trim().toUpperCase();
+
+  const prioridade = (byId("dem-prioridade").value || "Média");
+  const status = (byId("dem-status").value || "ABERTA");
+
+  const linkTrello = (byId("dem-link-trello").value || "").trim();
+  const linkEmail = (byId("dem-link-email").value || "").trim();
+
+  if (!assunto || !descricao) {
+    alert("Assunto e Descrição obrigatórios");
+    return;
+  }
+
   const payload = {
     user_id: currentUserProfile.id,
+    atendente: currentUserProfile.nome,
     codigo,
 
-    municipio: (cliSel.municipio || municipio || null),
-    tipo_entidade: (cliSel.tipo_entidade || cliSel.tipo || tipoEntidade || null),
+    cliente_id: cli.id,
+    cliente_nome: cli.cliente,
+    cliente_tipo_entidade: (cli.tipo_entidade || cli.tipo || null),
+    cliente_municipio: (cli.municipio || null),
+    cliente_estado: (cli.estado || null),
+    cliente_telefone: (cli.telefone || null),
 
-    cliente_id: cliSel.id,
-    cliente_nome: cliSel.cliente,
-    cliente_tipo_entidade: (cliSel.tipo_entidade || cliSel.tipo || null),
-    cliente_estado: cliSel.estado,
-    cliente_municipio: (cliSel.municipio || null),
-    cliente_telefone: cliSel.telefone,
+    tipo_entidade: (cli.tipo_entidade || cli.tipo || null),
+    municipio: (cli.municipio || null),
 
     assunto,
     descricao,
     programador: programador || null,
-    encaminhar_para: null,
     forma_atendimento: formaAtendimento || null,
 
     tags: tagsAtuais || [],
     prioridade,
-    status: statusDemanda,
+    status,
 
     link_trello: linkTrello || null,
     link_email: linkEmail || null,
+
+    encaminhar_para: null,
   };
 
   const { error } = await supabaseClient.from("demandas").insert(payload);
-
-  if(error){
-    console.error("Erro ao salvar demanda:", error);
-    setStatusBar("Erro ao salvar demanda: " + error.message);
+  if (error) {
+    console.error(error);
     alert("Erro ao salvar demanda: " + error.message);
     return;
   }
 
-  byId("form-demanda").reset();
+  // limpar
+  byId("dem-assunto").value = "";
+  byId("dem-descricao").value = "";
+  byId("dem-forma-atendimento").value = "";
+  byId("dem-link-trello").value = "";
+  byId("dem-link-email").value = "";
   tagsAtuais = [];
   renderizarTags();
 
-  setStatusBar("Demanda salva com sucesso!");
   await carregarDemandas();
 }
 
-async function carregarDemandas(){
-  setStatusBar("Carregando demandas...");
+// botão salvar demanda
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = byId("btn-salvar-demanda");
+  if (btn) btn.onclick = salvarDemanda;
+});
 
+// ----------------------
+// DEMANDAS - CARREGAR
+// ----------------------
+async function carregarDemandas() {
   const { data, error } = await supabaseClient
     .from("demandas")
     .select("*")
-    .order("created_at", { ascending:false });
+    .order("created_at", { ascending: false });
 
-  if(error){
-    console.error("Erro ao carregar demandas:", error);
-    setStatusBar("Erro ao carregar demandas: " + error.message);
+  if (error) {
+    console.error(error);
+    alert("Erro ao carregar demandas: " + error.message);
     return;
   }
 
-  const todas = data || [];
-  demandasCache = todas;
-
+  demandasCache = data || [];
   aplicarFiltrosERenderizar();
-  setStatusBar(`${demandasCache.length} demandas carregadas.`);
 }
 
-function aplicarFiltrosERenderizar(){
-  let arr = [...demandasCache];
+// ----------------------
+// FILTROS BÁSICOS
+// ----------------------
+function aplicarFiltrosERenderizar() {
+  let lista = [...demandasCache];
 
-  // Regras de visibilidade (programador só vê as dele; suporte padrão só as dele; gestor vê tudo)
-  if(!ehGestor()){
-    if(ehProgramador()){
-      arr = arr.filter(d => (d.programador || "") === (currentUserProfile.nome || ""));
-    } else if(ehSuporte() && !filtrosAtuais.consultarTodas){
-      arr = arr.filter(d => d.user_id === currentUserProfile.id);
+  // regra: não gestor -> vê só as próprias, a não ser que "consultarTodas" esteja marcado (somente leitura)
+  if (!ehGestor()) {
+    if (!filtrosAtuais.consultarTodas) {
+      lista = lista.filter((d) => d.user_id === currentUserProfile.id);
     }
   }
 
-  if(filtrosAtuais.ocultarConcluidas){
-    arr = arr.filter(d => (d.status || "").toUpperCase() !== "CONCLUIDA");
-  }
-
-  if(filtrosAtuais.status && filtrosAtuais.status !== "TODOS"){
-    arr = arr.filter(d => (d.status || "") === filtrosAtuais.status);
-  }
-  if(filtrosAtuais.atendente && filtrosAtuais.atendente !== "TODOS"){
-    arr = arr.filter(d => (d.atendente || "") === filtrosAtuais.atendente);
-  }
-  if(filtrosAtuais.programador && filtrosAtuais.programador !== "TODOS"){
-    arr = arr.filter(d => (d.programador || "") === filtrosAtuais.programador);
-  }
-  if(filtrosAtuais.municipio && filtrosAtuais.municipio !== "TODOS"){
-    arr = arr.filter(d => (d.municipio || d.cliente_municipio || "") === filtrosAtuais.municipio);
-  }
-  if(filtrosAtuais.estado && filtrosAtuais.estado !== "TODOS"){
-    arr = arr.filter(d => (d.cliente_estado || "") === filtrosAtuais.estado);
-  }
-  if(filtrosAtuais.tipoEntidade && filtrosAtuais.tipoEntidade !== "TODOS"){
-    arr = arr.filter(d => (d.tipo_entidade || d.cliente_tipo_entidade || "") === filtrosAtuais.tipoEntidade);
-  }
-
-  const txt = (filtrosAtuais.buscaTexto || "").trim().toUpperCase();
-  if(txt){
-    arr = arr.filter(d => {
-      const s = [
-        d.codigo, d.cliente_nome, d.assunto, d.descricao,
-        d.programador, d.forma_atendimento,
-        (d.tags || []).join(" "),
-        d.link_trello, d.link_email
-      ].join(" ").toUpperCase();
-      return s.includes(txt);
+  const texto = (filtrosAtuais.buscaTexto || "").trim().toUpperCase();
+  if (texto) {
+    lista = lista.filter((d) => {
+      const s = `${d.codigo} ${d.cliente_nome} ${d.assunto} ${(d.tags || []).join(" ")}`.toUpperCase();
+      return s.includes(texto);
     });
   }
 
-  renderizarTabelaDemandas(arr);
+  preencherTabelaDemandas(lista);
 }
 
-function renderizarTabelaDemandas(lista){
-  const tb = byId("tb-demandas");
-  if(!tb) return;
-  tb.innerHTML = "";
+document.addEventListener("DOMContentLoaded", () => {
+  const f = byId("filtro-texto");
+  if (f) {
+    f.oninput = () => {
+      filtrosAtuais.buscaTexto = f.value;
+      aplicarFiltrosERenderizar();
+    };
+  }
+});
 
-  lista.forEach(d => {
+// ----------------------
+// DEMANDAS - TABELA
+// ----------------------
+function preencherTabelaDemandas(lista) {
+  const tbody = byId("tb-demandas");
+  if (!tbody) return;
+
+  tbody.innerHTML = "";
+
+  lista.forEach((d) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${d.codigo || ""}</td>
       <td>${d.cliente_nome || ""}</td>
-      <td>${(d.tipo_entidade || d.cliente_tipo_entidade || "")}</td>
-      <td>${(d.municipio || d.cliente_municipio || "")}</td>
-      <td>${d.assunto || ""}</td>
-      <td><span class="badge status">${d.status || ""}</span></td>
-      <td class="actions">
-        <button class="btn ghost" data-act="open" data-id="${d.id}">Detalhes</button>
-        ${(podeEditarOuExcluirDemanda(d) ? `<button class="btn danger" data-act="del" data-id="${d.id}">Excluir</button>` : "")}
+      <td>${d.status || ""}</td>
+      <td>
+        <button data-open="${d.id}">Abrir</button>
+        ${(ehGestor() || ehSuporte()) ? `<button data-del="${d.id}">Excluir</button>` : ""}
       </td>
     `;
-    tb.appendChild(tr);
+    tbody.appendChild(tr);
   });
 
-  tb.querySelectorAll("button[data-act='open']").forEach(b => {
-    b.addEventListener("click", () => abrirModalDemanda(b.dataset.id));
-  });
-  tb.querySelectorAll("button[data-act='del']").forEach(b => {
-    b.addEventListener("click", () => excluirDemanda(b.dataset.id));
-  });
-}
-
-async function excluirDemanda(demandaId){
-  const d = demandasCache.find(x => x.id === demandaId);
-  if(!d) return;
-
-  if(filtrosAtuais.consultarTodas && !ehGestor()){
-    alert("Modo 'Consultar todas' é somente leitura para não-gestor.");
-    return;
-  }
-
-  if(!podeEditarOuExcluirDemanda(d)){
-    alert("Você não tem permissão para excluir esta demanda.");
-    return;
-  }
-
-  const ok = confirm(`Excluir a demanda ${d.codigo}? (ação permanente)`);
-  if(!ok) return;
-
-  const { error } = await supabaseClient.from("demandas").delete().eq("id", demandaId);
-  if(error){
-    console.error("Erro ao excluir demanda:", error);
-    alert("Erro ao excluir demanda: " + error.message);
-    return;
-  }
-
-  await carregarDemandas();
-}
-
-async function editarDemanda(){
-  const demandaId = byId("det-demanda-id").value;
-  const d = demandasCache.find(x => x.id === demandaId);
-  if(!d) return;
-
-  if(filtrosAtuais.consultarTodas && !ehGestor()){
-    alert("Modo 'Consultar todas' é somente leitura para não-gestor.");
-    return;
-  }
-
-  if(!podeEditarOuExcluirDemanda(d)){
-    alert("Você não tem permissão para editar esta demanda.");
-    return;
-  }
-
-  const novoAssunto = prompt("Assunto:", d.assunto || "");
-  if(novoAssunto === null) return;
-
-  const novaDesc = prompt("Descrição:", d.descricao || "");
-  if(novaDesc === null) return;
-
-  const novoProg = prompt("Programador (nome) ou vazio:", d.programador || "");
-  if(novoProg === null) return;
-
-  const novaForma = prompt("Forma de Atendimento:", d.forma_atendimento || "");
-  if(novaForma === null) return;
-
-  const novaPrioridade = prompt("Prioridade (Baixa/Média/Alta):", d.prioridade || "Média");
-  if(novaPrioridade === null) return;
-
-  const novoStatus = prompt("Status (ABERTA/EM ANDAMENTO/ENCAMINHADA/CONCLUIDA):", d.status || "ABERTA");
-  if(novoStatus === null) return;
-
-  const novoLinkTrello = prompt("Link Trello:", d.link_trello || "");
-  if(novoLinkTrello === null) return;
-
-  const novoLinkEmail = prompt("Link Email:", d.link_email || "");
-  if(novoLinkEmail === null) return;
-
-  const { error } = await supabaseClient.from("demandas").update({
-    assunto: novoAssunto.trim().toUpperCase(),
-    descricao: novaDesc.trim(),
-    programador: (novoProg.trim() || null),
-    forma_atendimento: (novaForma.trim() || null),
-    prioridade: novaPrioridade,
-    status: novoStatus,
-    link_trello: (novoLinkTrello.trim() || null),
-    link_email: (novoLinkEmail.trim() || null),
-    updated_at: new Date().toISOString(),
-  }).eq("id", demandaId);
-
-  if(error){
-    console.error("Erro ao editar demanda:", error);
-    alert("Erro ao editar demanda: " + error.message);
-    return;
-  }
-
-  await carregarDemandas();
-  await abrirModalDemanda(demandaId);
-}
-
-// =========================
-// MODAL DETALHES DEMANDA
-// =========================
-async function abrirModalDemanda(demandaId){
-  const d = demandasCache.find(x => x.id === demandaId);
-  if(!d) return;
-
-  show("modal-overlay");
-  show("modal-detalhes");
-
-  byId("det-demanda-id").value = d.id;
-
-  setText("modal-titulo", `Demanda ${d.codigo || ""}`);
-  setText("modal-subtitulo", `${d.cliente_nome || ""}`);
-
-  setText("det-codigo", d.codigo || "-");
-  setText("det-cliente", d.cliente_nome || "-");
-  setText("det-tipo", d.cliente_tipo_entidade || d.cliente_tipo || "-");
-  setText("det-estado", d.cliente_estado || "-");
-  setText("det-municipio", d.cliente_municipio || d.municipio || "-");
-  setText("det-telefone", d.cliente_telefone || "-");
-
-  setText("det-tipo-entidade", d.tipo_entidade || d.cliente_tipo_entidade || "-");
-  setText("det-assunto", d.assunto || "-");
-  setText("det-descricao", d.descricao || "-");
-
-  setText("det-programador", d.programador || "-");
-  setText("det-encaminhar-para", d.encaminhar_para || "-");
-  setText("det-forma-atendimento", d.forma_atendimento || "-");
-
-  setText("det-tags", (d.tags && d.tags.length) ? d.tags.join(", ") : "-");
-
-  setText("det-prioridade", d.prioridade || "-");
-  setText("det-status", d.status || "-");
-
-  setText("det-atendente", d.atendente || currentUserProfile.nome || "-");
-  setText("det-link-trello", d.link_trello || "-");
-  setText("det-link-email", d.link_email || "-");
-
-  setText("det-criado-em", formatarDataHoraBr(d.created_at));
-  setText("det-atualizado-em", formatarDataHoraBr(d.updated_at));
-
-  // Ações
-  const podeAcoes = podeEncaminharDemanda(d) || podeEditarOuExcluirDemanda(d) || ehGestor();
-  podeAcoes ? show("sec-acoes-demanda") : hide("sec-acoes-demanda");
-
-  // Botões ação (respeita permissão)
-  const btnEditar = byId("btn-editar-demanda");
-  const btnExcluir = byId("btn-excluir-demanda");
-  const btnEnc = byId("btn-encaminhar");
-
-  if(btnEditar) btnEditar.disabled = !podeEditarOuExcluirDemanda(d);
-  if(btnExcluir) btnExcluir.disabled = !podeEditarOuExcluirDemanda(d);
-  if(btnEnc) btnEnc.disabled = !podeEncaminharDemanda(d);
-
-  // Atualizações
-  await carregarAtualizacoesDemanda(d.id);
-}
-
-function fecharModalDemanda(){
-  hide("modal-detalhes");
-  hide("modal-overlay");
-  byId("det-demanda-id").value = "";
-}
-
-// =========================
-// ENCAMINHAR DEMANDA (MANTIDO)
-// =========================
-async function encaminharDemanda(){
-  const demandaId = byId("det-demanda-id").value;
-  const d = demandasCache.find(x => x.id === demandaId);
-  if(!d) return;
-
-  if(!podeEncaminharDemanda(d)){
-    alert("Você não tem permissão para encaminhar esta demanda.");
-    return;
-  }
-
-  const sel = byId("sel-encaminhar-usuario");
-  const userIdDestino = sel.value;
-  if(!userIdDestino){
-    alert("Selecione um usuário.");
-    return;
-  }
-
-  const opt = sel.selectedOptions[0];
-  const tipoDestino = (opt.dataset.tipo || "").toUpperCase();
-  const nomeDestino = opt.dataset.nome || "";
-
-  const upd = {
-    encaminhar_para: nomeDestino,
-    status: "ENCAMINHADA",
-    updated_at: new Date().toISOString(),
-  };
-
-  if(tipoDestino === "PROGRAMADOR"){
-    upd.programador = nomeDestino;
-  }
-
-  const { error } = await supabaseClient.from("demandas").update(upd).eq("id", demandaId);
-  if(error){
-    console.error("Erro ao encaminhar:", error);
-    alert("Erro ao encaminhar: " + error.message);
-    return;
-  }
-
-  await carregarDemandas();
-  await abrirModalDemanda(demandaId);
-}
-
-// =========================
-// ATUALIZAÇÕES (ANDAMENTOS)
-// =========================
-async function carregarAtualizacoesDemanda(demandaId){
-  const cont = byId("lista-atualizacoes");
-  if(!cont) return;
-
-  cont.innerHTML = "Carregando...";
-
-  const { data, error } = await supabaseClient
-    .from("atualizacoes_demanda")
-    .select("*")
-    .eq("demanda_id", demandaId)
-    .order("created_at", { ascending:false });
-
-  if(error){
-    console.error("Erro ao carregar atualizações:", error);
-    cont.innerHTML = "Erro ao carregar atualizações.";
-    return;
-  }
-
-  const arr = data || [];
-  if(!arr.length){
-    cont.innerHTML = "<p class='hint'>Sem atualizações registradas.</p>";
-    return;
-  }
-
-  cont.innerHTML = "";
-  arr.forEach(a => {
-    const div = document.createElement("div");
-    div.className = "upd";
-    div.innerHTML = `
-      <div class="upd-top">
-        <strong>${a.usuario_nome || "Usuário"}</strong>
-        <span class="muted">${formatarDataHoraBr(a.created_at)}</span>
-      </div>
-      <div class="upd-msg">${(a.mensagem || "").replace(/\n/g,"<br>")}</div>
-      <div class="upd-actions">
-        ${podeEditarOuExcluirAtualizacao(a) ? `<button class="btn ghost" data-act="edit" data-id="${a.id}">Editar</button>` : ""}
-        ${podeEditarOuExcluirAtualizacao(a) ? `<button class="btn danger" data-act="del" data-id="${a.id}">Excluir</button>` : ""}
-      </div>
-    `;
-    cont.appendChild(div);
+  tbody.querySelectorAll("button[data-open]").forEach((btn) => {
+    btn.onclick = () => abrirModalDemanda(btn.getAttribute("data-open"));
   });
 
-  cont.querySelectorAll("button[data-act='edit']").forEach(b => {
-    b.addEventListener("click", () => atualizarAtualizacao(b.dataset.id));
-  });
-  cont.querySelectorAll("button[data-act='del']").forEach(b => {
-    b.addEventListener("click", () => excluirAtualizacao(b.dataset.id));
+  tbody.querySelectorAll("button[data-del]").forEach((btn) => {
+    btn.onclick = async () => {
+      const id = btn.getAttribute("data-del");
+      await excluirDemanda(id);
+    };
   });
 }
 
-async function salvarAtualizacaoDemanda(){
-  const demandaId = byId("det-demanda-id").value;
-  if(!demandaId) return;
+// ----------------------
+// EXCLUIR DEMANDA
+// (suporte/gestor; se consultarTodas e não for gestor -> bloqueia)
+// ----------------------
+async function excluirDemanda(id) {
+  const d = demandasCache.find((x) => x.id === id);
+  if (!d) return;
 
-  const msg = byId("upd-mensagem").value.trim();
-  if(!msg){
-    alert("Digite uma atualização.");
+  if (filtrosAtuais.consultarTodas && !ehGestor()) {
+    alert("Consultar todas é somente leitura para não-gestor.");
     return;
   }
 
-  const payload = {
-    demanda_id: demandaId,
-    usuario_id: currentUserProfile.id,
-    usuario_nome: currentUserProfile.nome,
-    mensagem: msg,
-  };
-
-  const { error } = await supabaseClient.from("atualizacoes_demanda").insert(payload);
-  if(error){
-    console.error("Erro ao salvar atualização:", error);
-    alert("Erro: " + error.message);
+  if (!(ehGestor() || ehSuporte())) {
+    alert("Sem permissão");
     return;
   }
 
-  byId("upd-mensagem").value = "";
-  await carregarAtualizacoesDemanda(demandaId);
-}
+  if (!confirm("Excluir demanda " + (d.codigo || "") + "?")) return;
 
-async function atualizarAtualizacao(atualizacaoId){
-  const demandaId = byId("det-demanda-id").value;
-  const { data, error } = await supabaseClient
-    .from("atualizacoes_demanda")
-    .select("*")
-    .eq("id", atualizacaoId)
-    .single();
-
-  if(error || !data){
-    alert("Não foi possível abrir atualização.");
-    return;
-  }
-
-  if(!podeEditarOuExcluirAtualizacao(data)){
-    alert("Sem permissão.");
-    return;
-  }
-
-  // abre modal upd (já existe no seu HTML original)
-  show("modal-upd-overlay");
-  show("modal-upd");
-  byId("upd-id").value = data.id;
-  byId("upd-edit-mensagem").value = data.mensagem || "";
-}
-
-async function salvarEdicaoAtualizacao(){
-  const id = byId("upd-id").value;
-  const msg = byId("upd-edit-mensagem").value.trim();
-
-  const { error } = await supabaseClient
-    .from("atualizacoes_demanda")
-    .update({ mensagem: msg, updated_at: new Date().toISOString() })
-    .eq("id", id);
-
-  if(error){
-    alert("Erro ao editar: " + error.message);
-    return;
-  }
-
-  fecharModalAtualizacao();
-  await carregarAtualizacoesDemanda(byId("det-demanda-id").value);
-}
-
-async function excluirAtualizacao(atualizacaoId){
-  if(!confirm("Excluir atualização?")) return;
-
-  const { error } = await supabaseClient.from("atualizacoes_demanda").delete().eq("id", atualizacaoId);
-  if(error){
+  const { error } = await supabaseClient.from("demandas").delete().eq("id", id);
+  if (error) {
+    console.error(error);
     alert("Erro ao excluir: " + error.message);
     return;
   }
 
-  await carregarAtualizacoesDemanda(byId("det-demanda-id").value);
+  await carregarDemandas();
+}
+// ======================================================
+// APP.JS - PARTE 4/5
+// USUÁRIOS (gestor + encaminhar) e DETALHES/ENCAMINHAR/EDITAR
+// ======================================================
+
+// ----------------------
+// CARREGAR USUÁRIOS (para encaminhar / programador)
+// ----------------------
+async function carregarUsuarios() {
+  const { data, error } = await supabaseClient
+    .from("usuarios")
+    .select("id,nome,tipo,status")
+    .eq("status", "ATIVO")
+    .order("nome", { ascending: true });
+
+  if (error) {
+    console.error(error);
+    alert("Erro ao carregar usuários: " + error.message);
+    return;
+  }
+
+  usuariosCache = data || [];
+  preencherSelectProgramador();
 }
 
-function fecharModalAtualizacao(){
-  hide("modal-upd");
-  hide("modal-upd-overlay");
-  byId("upd-id").value = "";
-  byId("upd-edit-mensagem").value = "";
+// Programadores no select de cadastro
+function preencherSelectProgramador() {
+  const sel = byId("dem-programador");
+  if (!sel) return;
+
+  sel.innerHTML = `<option value="">(não definido)</option>`;
+  usuariosCache
+    .filter((u) => (u.tipo || "").toUpperCase() === "PROGRAMADOR")
+    .forEach((u) => {
+      const opt = document.createElement("option");
+      opt.value = u.nome;
+      opt.textContent = u.nome;
+      sel.appendChild(opt);
+    });
 }
 
-// =========================
-// GESTOR - USUÁRIOS
-// =========================
-async function carregarUsuariosGestor(){
-  if(!ehGestor()) return;
+// ----------------------
+// GESTOR - CARREGAR USUÁRIOS (tabela completa)
+// ----------------------
+async function carregarUsuariosGestor() {
+  if (!ehGestor()) return;
 
   const { data, error } = await supabaseClient
     .from("usuarios")
     .select("*")
-    .order("created_at", { ascending:false });
+    .order("created_at", { ascending: false });
 
-  if(error){
-    console.error("Erro ao carregar usuários gestor:", error);
+  if (error) {
+    console.error(error);
+    alert("Erro ao carregar usuários (gestor): " + error.message);
     return;
   }
 
-  const tb = byId("tb-usuarios");
-  if(!tb) return;
-  tb.innerHTML = "";
+  const tbody = byId("tb-usuarios");
+  if (!tbody) return;
 
-  (data || []).forEach(u => {
+  tbody.innerHTML = "";
+
+  (data || []).forEach((u) => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${u.nome || ""}</td>
       <td>${u.email || ""}</td>
       <td>${(u.tipo || "").toUpperCase()}</td>
-      <td><span class="badge ${u.status === "ATIVO" ? "ok" : "warn"}">${u.status}</span></td>
-      <td class="actions">
-        ${u.status !== "ATIVO" ? `<button class="btn primary" data-act="ativar" data-id="${u.id}">Aprovar</button>` : ""}
-        <button class="btn ghost" data-act="edit" data-id="${u.id}">Editar</button>
-        <button class="btn danger" data-act="del" data-id="${u.id}">Excluir</button>
+      <td>${u.status || ""}</td>
+      <td>
+        ${u.status !== "ATIVO" ? `<button data-aprovar="${u.id}">Aprovar</button>` : ""}
+        <button data-editar="${u.id}">Editar</button>
+        <button data-del="${u.id}">Excluir</button>
       </td>
     `;
-    tb.appendChild(tr);
+    tbody.appendChild(tr);
   });
 
-  tb.querySelectorAll("button[data-act='ativar']").forEach(b => {
-    b.addEventListener("click", () => atualizarStatusUsuario(b.dataset.id, "ATIVO"));
+  tbody.querySelectorAll("button[data-aprovar]").forEach((b) => {
+    b.onclick = () => aprovarUsuario(b.getAttribute("data-aprovar"));
   });
-  tb.querySelectorAll("button[data-act='edit']").forEach(b => {
-    b.addEventListener("click", () => editarUsuarioPrompt(b.dataset.id));
+
+  tbody.querySelectorAll("button[data-editar]").forEach((b) => {
+    b.onclick = () => editarUsuario(b.getAttribute("data-editar"));
   });
-  tb.querySelectorAll("button[data-act='del']").forEach(b => {
-    b.addEventListener("click", () => excluirUsuario(b.dataset.id));
+
+  tbody.querySelectorAll("button[data-del]").forEach((b) => {
+    b.onclick = () => excluirUsuario(b.getAttribute("data-del"));
   });
 }
 
-async function atualizarStatusUsuario(userId, status){
-  const { error } = await supabaseClient.from("usuarios").update({ status }).eq("id", userId);
-  if(error){
-    alert("Erro: " + error.message);
+async function aprovarUsuario(id) {
+  const { error } = await supabaseClient
+    .from("usuarios")
+    .update({ status: "ATIVO" })
+    .eq("id", id);
+
+  if (error) {
+    alert("Erro ao aprovar: " + error.message);
     return;
   }
+
   await carregarUsuariosGestor();
+  await carregarUsuarios(); // atualiza encaminhamento/programador
 }
 
-async function editarUsuarioPrompt(userId){
-  const { data, error } = await supabaseClient.from("usuarios").select("*").eq("id", userId).single();
-  if(error || !data) return;
+async function editarUsuario(id) {
+  const { data, error } = await supabaseClient
+    .from("usuarios")
+    .select("*")
+    .eq("id", id)
+    .single();
 
-  const novoTipo = prompt("Tipo (GESTOR/SUPORTE/PROGRAMADOR):", (data.tipo || ""));
-  if(novoTipo === null) return;
+  if (error || !data) {
+    alert("Não foi possível abrir usuário.");
+    return;
+  }
 
-  const novoStatus = prompt("Status (ATIVO/PENDENTE/BLOQUEADO):", (data.status || ""));
-  if(novoStatus === null) return;
+  const novoTipo = prompt("Tipo (GESTOR/SUPORTE/PROGRAMADOR):", (data.tipo || "").toUpperCase());
+  if (novoTipo === null) return;
 
-  const { error: errUpd } = await supabaseClient
+  const novoStatus = prompt("Status (ATIVO/PENDENTE/BLOQUEADO):", (data.status || "").toUpperCase());
+  if (novoStatus === null) return;
+
+  const { error: err2 } = await supabaseClient
     .from("usuarios")
     .update({ tipo: novoTipo.trim().toUpperCase(), status: novoStatus.trim().toUpperCase() })
-    .eq("id", userId);
+    .eq("id", id);
 
-  if(errUpd){
-    alert("Erro: " + errUpd.message);
+  if (err2) {
+    alert("Erro ao editar usuário: " + err2.message);
     return;
   }
 
   await carregarUsuariosGestor();
+  await carregarUsuarios();
 }
 
-async function excluirUsuario(userId){
-  if(!confirm("Excluir usuário do cadastro? (não remove do Auth)")) return;
+async function excluirUsuario(id) {
+  if (!confirm("Excluir usuário do cadastro? (não remove do Auth)")) return;
 
-  const { error } = await supabaseClient.from("usuarios").delete().eq("id", userId);
-  if(error){
-    alert("Erro: " + error.message);
+  const { error } = await supabaseClient.from("usuarios").delete().eq("id", id);
+  if (error) {
+    alert("Erro ao excluir: " + error.message);
     return;
   }
 
   await carregarUsuariosGestor();
+  await carregarUsuarios();
 }
 
-// =========================
-// LISTENERS
-// =========================
-function registrarListeners(){
-  const bLogin = byId("btn-login");
-  const bCad = byId("btn-cadastrar");
-  const bLogout = byId("btn-logout");
+// ----------------------
+// DETALHES DA DEMANDA
+// Se modal existir: preenche. Se não: fallback prompt.
+// ----------------------
+function abrirModalDemanda(id) {
+  const d = demandasCache.find((x) => x.id === id);
+  if (!d) return;
 
-  if(bLogin) bLogin.addEventListener("click", login);
-  if(bCad) bCad.addEventListener("click", cadastrarNovoUsuario);
-  if(bLogout) bLogout.addEventListener("click", logout);
+  // Se existir modal no HTML, use (compatibilidade com layout antigo)
+  const modal = byId("modal-detalhes");
+  const overlay = byId("modal-overlay");
 
-  const fCli = byId("form-cliente");
-  if(fCli) fCli.addEventListener("submit", salvarCliente);
-
-  const fDem = byId("form-demanda");
-  if(fDem) fDem.addEventListener("submit", salvarDemanda);
-
-  const btnAddTag = byId("btn-add-tag");
-  if(btnAddTag){
-    btnAddTag.addEventListener("click", () => {
-      const inp = byId("dem-tag");
-      const v = (inp.value || "").trim().toUpperCase();
-      if(!v) return;
-      if(!tagsAtuais.includes(v)) tagsAtuais.push(v);
-      inp.value = "";
-      renderizarTags();
-    });
+  if (modal && overlay) {
+    // Se você usa o HTML com modal, aqui você pode preencher campos.
+    // No HTML simples, não existe, então vai cair no fallback.
+    overlay.classList.remove("hidden");
+    modal.classList.remove("hidden");
+    // opcional: guardar id atual
+    modal.dataset.demandaId = id;
+    return;
   }
 
-  const selCli = byId("dem-cliente");
-  if(selCli){
-    selCli.addEventListener("change", () => {
-      const opt = selCli.selectedOptions[0];
-      if(!opt) return;
-      if(byId("dem-tipo-entidade")) byId("dem-tipo-entidade").value = opt.dataset.tipo_entidade || "";
-      if(byId("dem-estado")) byId("dem-estado").value = opt.dataset.estado || "";
-      if(byId("dem-municipio")) byId("dem-municipio").value = opt.dataset.municipio || "";
-      if(byId("dem-telefone")) byId("dem-telefone").value = opt.dataset.telefone || "";
-    });
-  }
+  // Fallback (HTML simples)
+  const resumo =
+    `Código: ${d.codigo}\n` +
+    `Cliente: ${d.cliente_nome}\n` +
+    `Tipo Entidade: ${d.tipo_entidade || ""}\n` +
+    `Município: ${d.municipio || ""}\n` +
+    `Status: ${d.status}\n` +
+    `Prioridade: ${d.prioridade}\n` +
+    `Programador: ${d.programador || ""}\n` +
+    `Encaminhar para: ${d.encaminhar_para || ""}\n` +
+    `Assunto: ${d.assunto}\n\n` +
+    `Descrição:\n${d.descricao}`;
 
-  const btnFechar = byId("btn-fechar-modal");
-  if(btnFechar) btnFechar.addEventListener("click", fecharModalDemanda);
+  const acao = prompt(
+    resumo + "\n\nDigite:\n1 = Encaminhar\n2 = Editar\n3 = Excluir\n(ENTER para fechar)",
+    ""
+  );
 
-  const btnEnc = byId("btn-encaminhar");
-  if(btnEnc) btnEnc.addEventListener("click", encaminharDemanda);
+  if (!acao) return;
 
-  const btnEd = byId("btn-editar-demanda");
-  if(btnEd) btnEd.addEventListener("click", editarDemanda);
-
-  const btnEx = byId("btn-excluir-demanda");
-  if(btnEx) btnEx.addEventListener("click", () => excluirDemanda(byId("det-demanda-id").value));
-
-  const btnSalvarUpd = byId("btn-salvar-atualizacao");
-  if(btnSalvarUpd) btnSalvarUpd.addEventListener("click", salvarAtualizacaoDemanda);
-
-  const btnUpdClose = byId("btn-fechar-upd");
-  if(btnUpdClose) btnUpdClose.addEventListener("click", fecharModalAtualizacao);
-
-  const btnUpdSalvar = byId("btn-salvar-upd");
-  if(btnUpdSalvar) btnUpdSalvar.addEventListener("click", salvarEdicaoAtualizacao);
-
-  // Filtros
-  const fBusca = byId("filtro-texto");
-  if(fBusca) fBusca.addEventListener("input", () => {
-    filtrosAtuais.buscaTexto = fBusca.value;
-    aplicarFiltrosERenderizar();
-  });
-
-  const chk = byId("chk-ocultar-concluidas");
-  if(chk) chk.addEventListener("change", () => {
-    filtrosAtuais.ocultarConcluidas = chk.checked;
-    aplicarFiltrosERenderizar();
-  });
-
-  const chkTodas = byId("chk-consultar-todas");
-  if(chkTodas) chkTodas.addEventListener("change", () => {
-    filtrosAtuais.consultarTodas = chkTodas.checked;
-    aplicarFiltrosERenderizar();
-  });
-
-  const fs = byId("filtro-status");
-  if(fs) fs.addEventListener("change", () => { filtrosAtuais.status = fs.value; aplicarFiltrosERenderizar(); });
-
-  const fa = byId("filtro-atendente");
-  if(fa) fa.addEventListener("change", () => { filtrosAtuais.atendente = fa.value; aplicarFiltrosERenderizar(); });
-
-  const fp = byId("filtro-programador");
-  if(fp) fp.addEventListener("change", () => { filtrosAtuais.programador = fp.value; aplicarFiltrosERenderizar(); });
-
-  const fm = byId("filtro-municipio");
-  if(fm) fm.addEventListener("change", () => { filtrosAtuais.municipio = fm.value; aplicarFiltrosERenderizar(); });
-
-  const fe = byId("filtro-estado");
-  if(fe) fe.addEventListener("change", () => { filtrosAtuais.estado = fe.value; aplicarFiltrosERenderizar(); });
-
-  const ft = byId("filtro-tipo-entidade");
-  if(ft) ft.addEventListener("change", () => { filtrosAtuais.tipoEntidade = ft.value; aplicarFiltrosERenderizar(); });
+  if (acao === "1") encaminharDemandaPrompt(id);
+  if (acao === "2") editarDemandaPrompt(id);
+  if (acao === "3") excluirDemanda(id);
 }
 
-// =========================
-// START
-// =========================
-document.addEventListener("DOMContentLoaded", inicializarApp);
+// ----------------------
+// ENCAMINHAR (fallback prompt)
+// Regra: se destino for PROGRAMADOR -> atualiza programador também
+// ----------------------
+async function encaminharDemandaPrompt(id) {
+  const d = demandasCache.find((x) => x.id === id);
+  if (!d) return;
+
+  if (!(ehGestor() || ehSuporte())) {
+    alert("Sem permissão");
+    return;
+  }
+
+  // lista ativos
+  const ativos = usuariosCache.length ? usuariosCache : await buscarUsuariosAtivos();
+
+  const lista = ativos
+    .map((u, idx) => `${idx + 1} - ${u.nome} (${(u.tipo || "").toUpperCase()})`)
+    .join("\n");
+
+  const escolha = prompt("Escolha o usuário para encaminhar:\n\n" + lista, "");
+  if (!escolha) return;
+
+  const idx = parseInt(escolha, 10) - 1;
+  const user = ativos[idx];
+  if (!user) {
+    alert("Escolha inválida.");
+    return;
+  }
+
+  const upd = {
+    encaminhar_para: user.nome,
+    status: "ENCAMINHADA",
+  };
+
+  if ((user.tipo || "").toUpperCase() === "PROGRAMADOR") {
+    upd.programador = user.nome;
+  }
+
+  const { error } = await supabaseClient.from("demandas").update(upd).eq("id", id);
+  if (error) {
+    alert("Erro ao encaminhar: " + error.message);
+    return;
+  }
+
+  await carregarDemandas();
+}
+
+// auxiliar
+async function buscarUsuariosAtivos() {
+  const { data, error } = await supabaseClient
+    .from("usuarios")
+    .select("id,nome,tipo,status")
+    .eq("status", "ATIVO")
+    .order("nome", { ascending: true });
+
+  if (error) {
+    alert("Erro ao buscar usuários: " + error.message);
+    return [];
+  }
+  usuariosCache = data || [];
+  return usuariosCache;
+}
+
+// ----------------------
+// EDITAR DEMANDA (fallback prompt)
+// ----------------------
+async function editarDemandaPrompt(id) {
+  const d = demandasCache.find((x) => x.id === id);
+  if (!d) return;
+
+  if (filtrosAtuais.consultarTodas && !ehGestor()) {
+    alert("Consultar todas é somente leitura para não-gestor.");
+    return;
+  }
+
+  if (!(ehGestor() || ehSuporte())) {
+    alert("Sem permissão");
+    return;
+  }
+
+  const assunto = prompt("Assunto:", d.assunto || "");
+  if (assunto === null) return;
+
+  const descricao = prompt("Descrição:", d.descricao || "");
+  if (descricao === null) return;
+
+  const status = prompt("Status (ABERTA/EM ANDAMENTO/ENCAMINHADA/CONCLUIDA):", d.status || "ABERTA");
+  if (status === null) return;
+
+  const prioridade = prompt("Prioridade (Baixa/Média/Alta):", d.prioridade || "Média");
+  if (prioridade === null) return;
+
+  const programador = prompt("Programador (nome) ou vazio:", d.programador || "");
+  if (programador === null) return;
+
+  const forma = prompt("Forma de atendimento:", d.forma_atendimento || "");
+  if (forma === null) return;
+
+  const linkTrello = prompt("Link Trello:", d.link_trello || "");
+  if (linkTrello === null) return;
+
+  const linkEmail = prompt("Link Email:", d.link_email || "");
+  if (linkEmail === null) return;
+
+  const { error } = await supabaseClient
+    .from("demandas")
+    .update({
+      assunto: assunto.trim().toUpperCase(),
+      descricao: descricao.trim(),
+      status: status.trim().toUpperCase(),
+      prioridade: prioridade.trim(),
+      programador: programador.trim() || null,
+      forma_atendimento: forma.trim() || null,
+      link_trello: linkTrello.trim() || null,
+      link_email: linkEmail.trim() || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+
+  if (error) {
+    alert("Erro ao editar: " + error.message);
+    return;
+  }
+
+  await carregarDemandas();
+}
+// ======================================================
+// APP.JS - PARTE 5/5
+// LOGOUT + CONSULTAR TODAS + BOOT FINAL
+// ======================================================
+
+// ----------------------
+// CHECKBOX "CONSULTAR TODAS" (se existir no HTML)
+// ----------------------
+document.addEventListener("DOMContentLoaded", () => {
+  const chk = byId("chk-consultar-todas");
+  if (chk) {
+    chk.onchange = () => {
+      filtrosAtuais.consultarTodas = chk.checked;
+      aplicarFiltrosERenderizar();
+    };
+  }
+});
+
+// ----------------------
+// LOGOUT
+// ----------------------
+async function logout() {
+  await supabaseClient.auth.signOut();
+  currentSession = null;
+  currentUserProfile = null;
+  location.reload();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = byId("btn-logout");
+  if (btn) btn.onclick = logout;
+});
+
+// ----------------------
+// COMPLEMENTO: quando entrar no app, carrega usuários também
+// (para programador/encaminhar)
+// ----------------------
+const _iniciarAppOriginal = iniciarApp;
+iniciarApp = function () {
+  _iniciarAppOriginal();
+  carregarUsuarios();          // para select programador e encaminhamento
+  if (ehGestor()) carregarUsuariosGestor(); // tabela de usuários
+};
+
+// ----------------------
+// GARANTIA: se usuário clicar fora do modal (quando existir) fecha
+// ----------------------
+document.addEventListener("DOMContentLoaded", () => {
+  const overlay = byId("modal-overlay");
+  const modal = byId("modal-detalhes");
+  if (overlay && modal) {
+    overlay.onclick = () => {
+      overlay.classList.add("hidden");
+      modal.classList.add("hidden");
+    };
+  }
+});
