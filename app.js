@@ -107,33 +107,49 @@ function mostrarTelaAuth(){
 function ajustarInterfacePorPerfil(){
   const ajudaEl = byId("ajuda-perfil");
 
-  // Painel do gestor e gestão de usuários: apenas gestor
+  // =====================
+  // PAINEL GESTOR
+  // =====================
   if(ehGestor()){
     show("sec-painel-gestor");
   } else {
     hide("sec-painel-gestor");
   }
 
-  // Cadastro de clientes: gestor e suporte
+  // =====================
+  // CADASTRO DE CLIENTES
+  // Gestor + Suporte
+  // =====================
   if(ehGestor() || ehSuporte()){
     show("sec-clientes");
   } else {
     hide("sec-clientes");
   }
 
-  // Cadastro de demandas: gestor e suporte
+  // =====================
+  // CADASTRO DE DEMANDAS
+  // Gestor + Suporte
+  // =====================
   if(ehGestor() || ehSuporte()){
     show("sec-cadastro-demanda");
   } else {
     hide("sec-cadastro-demanda");
   }
 
+  // =====================
+  // TEXTO DE AJUDA
+  // =====================
   if(ehProgramador()){
-    if(ajudaEl) ajudaEl.textContent = "Perfil Programador: você vê as suas demandas (ou consulta todas no toggle) e registra andamentos.";
-  } else if(ehSuporte()){
-    if(ajudaEl) ajudaEl.textContent = "Perfil Suporte: você cadastra, edita e exclui as demandas que criar e pode consultar todas no toggle.";
-  } else if(ehGestor()){
-    if(ajudaEl) ajudaEl.textContent = "Perfil Gestor: gerencia usuários, clientes e acompanha produção.";
+    ajudaEl.textContent =
+      "Perfil Programador: você visualiza demandas e registra atualizações.";
+  } 
+  else if(ehSuporte()){
+    ajudaEl.textContent =
+      "Perfil Suporte: você cadastra clientes, cria e gerencia suas demandas.";
+  } 
+  else if(ehGestor()){
+    ajudaEl.textContent =
+      "Perfil Gestor: visão completa, gestão de usuários, clientes e demandas.";
   }
 }
 
