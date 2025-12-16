@@ -12,9 +12,11 @@
   <!-- TELA DE LOGIN / CADASTRO -->
   <div id="auth-container" class="auth-card">
     <h1>Sistema de Demandas</h1>
+
     <div class="auth-columns">
       <div class="auth-box">
         <h2>Entrar</h2>
+
         <label for="login-email">Email</label>
         <input type="email" id="login-email" />
 
@@ -27,6 +29,7 @@
 
       <div class="auth-box">
         <h2>Novo Cadastro</h2>
+
         <label for="cad-nome">Nome</label>
         <input type="text" id="cad-nome" />
 
@@ -69,6 +72,7 @@
         <button id="btn-cadastrar" class="btn secondary" type="button">Cadastrar Usuário</button>
       </div>
     </div>
+
     <p id="auth-status" class="status-text"></p>
   </div>
 
@@ -82,12 +86,83 @@
       <div class="topbar-right">
         <span id="user-label" class="user-label"></span>
         <span class="badge ok">Supabase conectado</span>
-        <button id="btn-graficos" class="btn ghost" type="button">Gráficos</button>
+        <button id="btn-graficos" class="btn info" type="button">Gráficos</button>
         <button id="btn-logout" class="btn danger" type="button">Sair</button>
       </div>
     </header>
 
     <main class="layout">
+      <!-- CADASTRO DE CLIENTES (apenas GESTOR e SUPORTE) -->
+      <section class="panel" id="sec-clientes">
+        <div class="panel-header">
+          <h2>Cadastro de Clientes</h2>
+          <span class="status-bar" id="status-clientes">Pronto</span>
+        </div>
+
+        <form id="form-cliente" class="form-grid">
+          <div class="row">
+            <div class="col">
+              <label for="cli-nome">Cliente</label>
+              <input type="text" id="cli-nome" placeholder="CRATEÚS" />
+            </div>
+            <div class="col">
+              <label for="cli-tipo">Tipo</label>
+              <select id="cli-tipo">
+                <option value="">Selecione...</option>
+                <option value="CM">CM</option>
+                <option value="PM">PM</option>
+                <option value="AUTARQUIA">Autarquia</option>
+                <option value="IPM">IPM</option>
+                <option value="CONSORCIO">Consórcio</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col">
+              <label for="cli-estado">Estado</label>
+              <select id="cli-estado">
+                <option value="">Selecione...</option>
+                <option value="Maranhão">Maranhão</option>
+                <option value="Ceará">Ceará</option>
+                <option value="Pará">Pará</option>
+                <option value="Rio Grande do Norte">Rio Grande do Norte</option>
+                <option value="Amapá">Amapá</option>
+              </select>
+            </div>
+            <div class="col">
+              <label for="cli-contato">Contato</label>
+              <input type="text" id="cli-contato" placeholder="ALLISSON" />
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col">
+              <label for="cli-telefone">Número de Telefone</label>
+              <input type="text" id="cli-telefone" placeholder="8599999..." />
+            </div>
+          </div>
+
+          <button type="submit" class="btn primary">Salvar Cliente</button>
+        </form>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>Tipo</th>
+                <th>Estado</th>
+                <th>Contato</th>
+                <th>Telefone</th>
+                <th class="col-actions">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabela-clientes"></tbody>
+          </table>
+        </div>
+      </section>
+
       <!-- CADASTRO DE DEMANDA -->
       <section class="panel" id="sec-cadastro-demanda">
         <div class="panel-header">
@@ -96,12 +171,41 @@
         </div>
 
         <form id="form-demanda" class="form-grid">
+          <!-- Seleção em cascata do Cliente -->
           <div class="row">
             <div class="col">
-              <label for="dem-cliente">Cliente</label>
-              <select id="dem-cliente">
-                <option value="">Selecione...</option>
-              </select>
+              <label for="dem-cliente">Cliente (cadastro)</label>
+              <select id="dem-cliente"></select>
+              <p class="hint">Ao escolher o cliente, Estado e Contato filtram automaticamente.</p>
+            </div>
+            <div class="col">
+              <label for="dem-cliente-tipo">Tipo</label>
+              <select id="dem-cliente-tipo"></select>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col">
+              <label for="dem-cliente-estado">Estado</label>
+              <select id="dem-cliente-estado"></select>
+            </div>
+            <div class="col">
+              <label for="dem-cliente-contato">Contato</label>
+              <select id="dem-cliente-contato"></select>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col">
+              <label for="dem-cliente-telefone">Telefone</label>
+              <input type="text" id="dem-cliente-telefone" readonly />
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col">
+              <label for="dem-municipio">Município</label>
+              <input type="text" id="dem-municipio" />
             </div>
             <div class="col">
               <label for="dem-tipo-entidade">Tipo Entidade (CM, PM, CONSORCIO, IPM)</label>
@@ -110,25 +214,6 @@
           </div>
 
           <div class="row">
-            <div class="col">
-              <label for="dem-estado">Estado</label>
-              <select id="dem-estado">
-                <option value="">Selecione...</option>
-              </select>
-            </div>
-            <div class="col">
-              <label for="dem-contato">Contato</label>
-              <select id="dem-contato">
-                <option value="">Selecione...</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="row">
-            <div class="col">
-              <label for="dem-telefone">Telefone</label>
-              <input type="text" id="dem-telefone" placeholder="Automático ao escolher contato" />
-            </div>
             <div class="col">
               <label for="dem-assunto">Assunto</label>
               <input type="text" id="dem-assunto" />
@@ -153,6 +238,15 @@
               <label for="dem-forma-atendimento">Forma de Atendimento (separe por vírgula)</label>
               <input type="text" id="dem-forma-atendimento" placeholder="ANYDESK, EMAIL, TELEFONE..." />
               <div id="sugs-forma-atendimento" class="chips"></div>
+            </div>
+          </div>
+
+          <!-- TAGS -->
+          <div class="row">
+            <div class="col">
+              <label for="dem-tags-input">TAGS (digite e pressione vírgula ou Enter)</label>
+              <input type="text" id="dem-tags-input" placeholder="ex: IRRF, FÉRIAS, RESCISÃO" />
+              <div id="dem-tags-chips" class="chips"></div>
             </div>
           </div>
 
@@ -197,6 +291,7 @@
       <section class="panel" id="sec-lista-demandas">
         <div class="panel-header">
           <h2>Demandas</h2>
+
           <div class="filters">
             <input type="text" id="filtro-busca" placeholder="Buscar por descrição, assunto ou código..." />
 
@@ -205,9 +300,9 @@
               Ocultar concluídas
             </label>
 
-            <label class="inline" id="box-consultar-todas">
+            <label class="inline">
               <input type="checkbox" id="filtro-consultar-todas" />
-              Consultar todas
+              Consultar todas (somente leitura)
             </label>
 
             <select id="filtro-status">
@@ -219,9 +314,9 @@
               <option value="CONCLUÍDA">Concluída</option>
             </select>
 
-            <select id="filtro-suporte"></select>
+            <select id="filtro-atendente"></select>
             <select id="filtro-programador"></select>
-            <select id="filtro-cliente"></select>
+            <select id="filtro-municipio"></select>
             <select id="filtro-estado"></select>
             <select id="filtro-tipo-entidade"></select>
           </div>
@@ -232,6 +327,7 @@
             <thead>
               <tr>
                 <th>Código</th>
+                <th>Município</th>
                 <th>Cliente</th>
                 <th>Assunto</th>
                 <th>Status</th>
@@ -242,81 +338,46 @@
             <tbody id="tabela-demandas"></tbody>
           </table>
         </div>
+
         <p id="total-demandas" class="status-text"></p>
       </section>
 
-      <!-- CADASTRO DE CLIENTES (SUPORTE/GESTOR) -->
-      <section class="panel wide" id="sec-clientes">
-        <div class="panel-header">
-          <h2>Cadastro de Clientes</h2>
-        </div>
-
-        <form id="form-cliente" class="form-grid">
-          <div class="row">
-            <div class="col">
-              <label for="cli-cliente">Cliente</label>
-              <input id="cli-cliente" type="text" placeholder="Ex: CRATEUS" />
-            </div>
-            <div class="col">
-              <label for="cli-estado">Estado</label>
-              <input id="cli-estado" type="text" placeholder="Ex: CEARA" />
-            </div>
-          </div>
-
-          <div class="row">
-            <div class="col">
-              <label for="cli-contato">Contato</label>
-              <input id="cli-contato" type="text" placeholder="Ex: ALLISSON" />
-            </div>
-            <div class="col">
-              <label for="cli-telefone">Telefone</label>
-              <input id="cli-telefone" type="text" placeholder="Ex: 8599999" />
-            </div>
-          </div>
-
-          <button class="btn primary" type="submit">Salvar Cliente</button>
-          <p class="hint" id="clientes-status"></p>
-        </form>
-
-        <div class="table-wrapper" style="margin-top:10px;">
-          <table>
-            <thead>
-              <tr>
-                <th>Cliente</th>
-                <th>Estado</th>
-                <th>Contato</th>
-                <th>Telefone</th>
-                <th style="width:160px;">Ações</th>
-              </tr>
-            </thead>
-            <tbody id="tabela-clientes"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- PAINEL DO GESTOR -->
-      <section class="panel wide" id="sec-painel-gestor">
+      <!-- PAINEL DO GESTOR (APENAS GESTOR) -->
+      <section class="panel wide hidden" id="sec-painel-gestor">
         <div class="panel-header">
           <h2>Painel do Gestor</h2>
         </div>
 
-        <!-- TOP 10 -->
-        <div class="acoes-grid" style="margin-bottom:10px;">
-          <div class="acao-card">
-            <h4>Top 10 – Últimas cadastradas</h4>
-            <ul id="top10-cadastradas" class="lista-atualizacoes"></ul>
+        <div class="row">
+          <div class="col">
+            <h3 class="subttl">Top 10 últimas cadastradas</h3>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr><th>Código</th><th>Município</th><th>Assunto</th><th>Criado em</th></tr>
+                </thead>
+                <tbody id="gestor-top10-cadastradas"></tbody>
+              </table>
+            </div>
           </div>
-          <div class="acao-card">
-            <h4>Top 10 – Últimas concluídas</h4>
-            <ul id="top10-concluidas" class="lista-atualizacoes"></ul>
+
+          <div class="col">
+            <h3 class="subttl">Top 10 últimas concluídas</h3>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr><th>Código</th><th>Município</th><th>Assunto</th><th>Atualizado</th></tr>
+                </thead>
+                <tbody id="gestor-top10-concluidas"></tbody>
+              </table>
+            </div>
           </div>
         </div>
 
-        <!-- USUÁRIOS -->
-        <div class="panel-header" style="margin-top:6px;">
-          <h2>Usuários</h2>
-          <span class="status-bar" id="usuarios-gestor-status"></span>
-        </div>
+        <hr class="sep" />
+
+        <h3 class="subttl">Gestão de Usuários</h3>
+        <p class="hint">Apenas Gestor visualiza e gerencia usuários.</p>
 
         <div class="table-wrapper">
           <table>
@@ -355,19 +416,29 @@
         <h3>Resumo</h3>
         <div class="detalhes-grid">
           <div><strong>Código:</strong> <span id="det-codigo"></span></div>
+          <div><strong>Município:</strong> <span id="det-municipio"></span></div>
+
           <div><strong>Cliente:</strong> <span id="det-cliente"></span></div>
-          <div><strong>Estado:</strong> <span id="det-estado"></span></div>
-          <div><strong>Contato:</strong> <span id="det-contato"></span></div>
-          <div><strong>Telefone:</strong> <span id="det-telefone"></span></div>
+          <div><strong>Cliente Tipo:</strong> <span id="det-cliente-tipo"></span></div>
+          <div><strong>Cliente Estado:</strong> <span id="det-cliente-estado"></span></div>
+          <div><strong>Cliente Contato:</strong> <span id="det-cliente-contato"></span></div>
+          <div><strong>Cliente Telefone:</strong> <span id="det-cliente-telefone"></span></div>
+
           <div><strong>Tipo Entidade:</strong> <span id="det-tipo-entidade"></span></div>
           <div><strong>Assunto:</strong> <span id="det-assunto"></span></div>
+
           <div class="full"><strong>Descrição:</strong> <span id="det-descricao"></span></div>
+
           <div><strong>Programador:</strong> <span id="det-programador"></span></div>
           <div><strong>Encaminhar para:</strong> <span id="det-encaminhar-para"></span></div>
           <div><strong>Forma Atendimento:</strong> <span id="det-forma-atendimento"></span></div>
+
+          <div><strong>TAGS:</strong> <span id="det-tags"></span></div>
+
           <div><strong>Prioridade:</strong> <span id="det-prioridade"></span></div>
           <div><strong>Status:</strong> <span id="det-status"></span></div>
-          <div><strong>Suporte:</strong> <span id="det-suporte"></span></div>
+
+          <div><strong>Suporte:</strong> <span id="det-atendente"></span></div>
           <div><strong>Link Trello:</strong> <span id="det-link-trello"></span></div>
           <div><strong>Link Email:</strong> <span id="det-link-email"></span></div>
           <div><strong>Criado em:</strong> <span id="det-criado-em"></span></div>
@@ -382,13 +453,16 @@
             <label for="sel-encaminhar-usuario">Encaminhar para</label>
             <select id="sel-encaminhar-usuario"></select>
             <button id="btn-encaminhar" class="btn primary" type="button">Encaminhar</button>
-            <p class="hint">Se o destino não for PROGRAMADOR, o campo Programador não muda.</p>
+            <p class="hint">
+              Se o destino for PROGRAMADOR, muda o campo Programador.
+              Se for outro perfil, muda apenas “Encaminhar para”.
+            </p>
           </div>
 
           <div class="acao-card" id="card-editar">
             <h4>Editar</h4>
             <button id="btn-editar-demanda" class="btn secondary" type="button">Editar campos</button>
-            <p class="hint">Somente o criador (SUPORTE) ou Gestor.</p>
+            <p class="hint">Somente o criador (Suporte) ou Gestor.</p>
           </div>
 
           <div class="acao-card danger" id="card-excluir">
@@ -406,8 +480,28 @@
         <form id="form-atualizacao-demanda" class="form-atualizacao">
           <textarea id="nova-atualizacao-texto" placeholder="Registrar novo andamento..."></textarea>
           <button type="submit" class="btn primary">Adicionar atualização</button>
-          <p class="hint">Você pode editar/excluir seu próprio andamento. Gestor pode em todos.</p>
+          <p class="hint">Você pode editar/excluir seu próprio andamento. Gestor pode tudo.</p>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL EDITAR ATUALIZAÇÃO -->
+  <div id="modal-upd-overlay" class="modal-overlay hidden"></div>
+  <div id="modal-upd" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="upd-titulo">
+    <div class="modal-header">
+      <div>
+        <h2 id="upd-titulo">Editar andamento</h2>
+        <p class="modal-sub" id="upd-subtitulo"></p>
+      </div>
+      <button id="btn-fechar-upd" class="btn ghost" type="button">Fechar</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="upd-id" />
+      <textarea id="upd-texto" style="min-height:120px;"></textarea>
+      <div class="row" style="margin-top:8px;">
+        <button id="btn-salvar-upd" class="btn primary" type="button">Salvar</button>
+        <button id="btn-excluir-upd" class="btn danger" type="button">Excluir</button>
       </div>
     </div>
   </div>

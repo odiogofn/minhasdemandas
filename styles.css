@@ -69,6 +69,14 @@ textarea{ resize:vertical; min-height:70px; }
 .btn.secondary{ background:#e5e7eb; color:#111827; }
 .btn.ghost{ background:transparent; border:1px solid #d1d5db; color:#111827; }
 .btn.danger{ background:#ef4444; color:#fff; }
+
+/* ✅ Botão Gráficos visível (antes ficava “preto”) */
+.btn.info{
+  background:#0ea5e9;
+  color:#fff;
+  box-shadow:0 4px 10px rgba(14,165,233,.25);
+}
+
 .btn:hover{ transform:translateY(-1px); box-shadow:0 6px 16px rgba(15,23,42,.18); }
 
 .status-text{ margin-top:10px; font-size:12px; color:#4b5563; }
@@ -142,7 +150,7 @@ textarea{ resize:vertical; min-height:70px; }
 
 /* Form */
 .form-grid{ display:flex; flex-direction:column; gap:10px; }
-.chips{ margin-top:4px; display:flex; flex-wrap:wrap; gap:4px; }
+.chips{ margin-top:4px; display:flex; flex-wrap:wrap; gap:6px; }
 .chip-sugestao{
   font-size:11px;
   padding:2px 7px;
@@ -153,6 +161,27 @@ textarea{ resize:vertical; min-height:70px; }
   border:1px solid #e5e7eb;
 }
 .chip-sugestao:hover{ background:#e0e7ff; }
+
+/* ✅ chips de TAGS */
+.chip-tag{
+  font-size:11px;
+  padding:2px 8px;
+  border-radius:999px;
+  background:#ecfeff;
+  color:#155e75;
+  border:1px solid #a5f3fc;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+.chip-tag button{
+  border:none;
+  background:transparent;
+  cursor:pointer;
+  font-size:12px;
+  line-height:1;
+  color:#155e75;
+}
 
 /* Filters + table */
 .filters{
@@ -291,10 +320,13 @@ tbody tr:hover{ background:#f3f4f6; }
   background:#f9fafb;
 }
 .item-atualizacao .muted{ font-size:11px; color:#6b7280; }
+.item-atualizacao .upd-actions{
+  margin-top:6px;
+  display:flex;
+  gap:6px;
+}
 .form-atualizacao textarea{ min-height:70px; margin-bottom:6px; }
 
-/* Gestor users */
-#sec-painel-gestor .table-wrapper{ max-height:260px; }
 .badge-status{
   font-size:11px;
   padding:2px 8px;
@@ -304,6 +336,7 @@ tbody tr:hover{ background:#f3f4f6; }
 .badge-status.PENDENTE{ background:#fef3c7; color:#92400e; }
 .badge-status.ATIVO{ background:#bbf7d0; color:#166534; }
 .badge-status.INATIVO{ background:#fee2e2; color:#991b1b; }
+
 .btn-xs{
   padding:3px 6px;
   font-size:11px;
@@ -315,16 +348,8 @@ tbody tr:hover{ background:#f3f4f6; }
 .btn-xs:hover{ background:#f3f4f6; }
 .acao-botoes{ display:flex; flex-wrap:wrap; gap:4px; }
 
-.btn-link-mini{
-  padding:2px 6px;
-  font-size:11px;
-  border-radius:999px;
-  border:1px solid #d1d5db;
-  background:#fff;
-  cursor:pointer;
-  margin-left:6px;
-}
-.btn-link-mini:hover{ background:#f3f4f6; }
+.subttl{ margin:0 0 6px; font-size:13px; }
+.sep{ border:none; border-top:1px solid #e5e7eb; margin:12px 0; }
 
 @media (max-width: 1050px){
   .layout{ grid-template-columns: 1fr; }
