@@ -34,6 +34,36 @@ function setText(id, text){ const el = byId(id); if(el) el.textContent = text; }
 function show(id){ const el = byId(id); if(el) el.classList.remove("hidden"); }
 function hide(id){ const el = byId(id); if(el) el.classList.add("hidden"); }
 
+
+// ==========================
+// TABS (UI)
+// ==========================
+const TAB_SECTION_IDS = ["sec-lista-demandas","sec-cadastro-demanda","sec-clientes"];
+
+function setActiveTab(sectionId){
+  // Garante que apenas uma seção esteja visível por vez (entre as 3 abas)
+  TAB_SECTION_IDS.forEach(id=>{
+    const el = byId(id);
+    if(!el) return;
+    if(id === sectionId) el.classList.remove("hidden");
+    else el.classList.add("hidden");
+  });
+
+  // Botões
+  const btns = document.querySelectorAll("#tabs-main .tab-btn");
+  btns.forEach(b=>{
+    const tid = b.getAttribute("data-tab");
+    if(tid === sectionId) b.classList.add("active");
+    else b.classList.remove("active");
+  });
+}
+
+function pickFirstVisibleTab(){
+  const btns = Array.from(document.querySelectorAll("#tabs-main .tab-btn"))
+    .filter(b=>!b.classList.contains("hidden"));
+  if(btns.length === 0) return null;
+  return btns[0].getAttribute("data-tab");
+}
 function formatarDataHoraBr(dateStr){
   if(!dateStr) return "";
   const d = new Date(dateStr);
@@ -44,13 +74,9 @@ function validarSenhaSimples(senha){
   return /^[A-Za-z0-9]{1,10}$/.test(senha);
 }
 
-function tipoPerfil(){
-  return (currentUserProfile?.tipo || "").toString().trim().toUpperCase();
-}
-
-function ehGestor(){ return tipoPerfil() === "GESTOR"; }
-function ehSuporte(){ return tipoPerfil() === "SUPORTE"; }
-function ehProgramador(){ return tipoPerfil() === "PROGRAMADOR"; }
+function ehGestor(){ return currentUserProfile && currentUserProfile.tipo === "GESTOR"; }
+function ehSuporte(){ return currentUserProfile && currentUserProfile.tipo === "SUPORTE"; }
+function ehProgramador(){ return currentUserProfile && currentUserProfile.tipo === "PROGRAMADOR"; }
 
 function setStatusBar(texto){ setText("status-bar", texto); }
 function setStatusClientes(texto){ setText("status-clientes", texto); }
@@ -107,49 +133,57 @@ function mostrarTelaAuth(){
 function ajustarInterfacePorPerfil(){
   const ajudaEl = byId("ajuda-perfil");
 
-  // =====================
-  // PAINEL GESTOR
-  // =====================
+  // Painel do gestor e gestão de usuários: apenas gestor
   if(ehGestor()){
     show("sec-painel-gestor");
   } else {
     hide("sec-painel-gestor");
   }
 
-  // =====================
-  // CADASTRO DE CLIENTES
-  // Gestor + Suporte
-  // =====================
+  // Cadastro de clientes: gestor e suporte
   if(ehGestor() || ehSuporte()){
     show("sec-clientes");
   } else {
     hide("sec-clientes");
   }
 
-  // =====================
-  // CADASTRO DE DEMANDAS
-  // Gestor + Suporte
-  // =====================
+  // Cadastro de demandas: gestor e suporte
   if(ehGestor() || ehSuporte()){
     show("sec-cadastro-demanda");
   } else {
     hide("sec-cadastro-demanda");
   }
 
-  // =====================
-  // TEXTO DE AJUDA
-  // =====================
+  // Tabs: mostrar/ocultar botões conforme o perfil
+  const btnClientes = byId("tab-clientes");
+  const btnCadDemanda = byId("tab-cad-demanda");
+
+  if(btnClientes){
+    if(ehGestor() || ehSuporte()) btnClientes.classList.remove("hidden");
+    else btnClientes.classList.add("hidden");
+  }
+
+  if(btnCadDemanda){
+    if(ehGestor() || ehSuporte()) btnCadDemanda.classList.remove("hidden");
+    else btnCadDemanda.classList.add("hidden");
+  }
+
+  // Se a aba atual ficou inacessível, troca para a primeira disponível
+  const activeBtn = document.querySelector("#tabs-main .tab-btn.active");
+  const activeTarget = activeBtn?.getAttribute("data-tab");
+  const isActiveHidden = activeBtn?.classList.contains("hidden") || (activeTarget && byId(activeTarget)?.classList.contains("hidden"));
+  if(!activeBtn || isActiveHidden){
+    const first = pickFirstVisibleTab() || "sec-lista-demandas";
+    setActiveTab(first);
+  }
+
+
   if(ehProgramador()){
-    ajudaEl.textContent =
-      "Perfil Programador: você visualiza demandas e registra atualizações.";
-  } 
-  else if(ehSuporte()){
-    ajudaEl.textContent =
-      "Perfil Suporte: você cadastra clientes, cria e gerencia suas demandas.";
-  } 
-  else if(ehGestor()){
-    ajudaEl.textContent =
-      "Perfil Gestor: visão completa, gestão de usuários, clientes e demandas.";
+    if(ajudaEl) ajudaEl.textContent = "Perfil Programador: você vê as suas demandas (ou consulta todas no toggle) e registra andamentos.";
+  } else if(ehSuporte()){
+    if(ajudaEl) ajudaEl.textContent = "Perfil Suporte: você cadastra, edita e exclui as demandas que criar e pode consultar todas no toggle.";
+  } else if(ehGestor()){
+    if(ajudaEl) ajudaEl.textContent = "Perfil Gestor: gerencia usuários, clientes e acompanha produção.";
   }
 }
 
@@ -159,6 +193,9 @@ function mostrarApp(){
 
   setText("user-label", `${currentUserProfile.nome} (${currentUserProfile.tipo} · ${currentUserProfile.unidade || "-"})`);
   ajustarInterfacePorPerfil();
+
+  // Aba inicial
+  if(byId("tabs-main")) setActiveTab("sec-lista-demandas");
 
   // Carregamentos base
   carregarUsuariosParaEncaminhar();
@@ -1537,6 +1574,15 @@ function registrarListeners(){
       fecharModal();
       fecharModalAtualizacao();
     }
+  });
+
+
+  // Tabs (Demandas / Cadastrar Demanda / Cadastro de Clientes)
+  document.querySelectorAll("#tabs-main .tab-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const secId = btn.getAttribute("data-tab");
+      if(secId) setActiveTab(secId);
+    });
   });
 }
 

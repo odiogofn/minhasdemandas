@@ -123,9 +123,8 @@ textarea{ resize:vertical; min-height:70px; }
   max-width:1320px;
   margin:16px auto;
   padding:0 12px 20px;
-  display:grid;
-  grid-template-columns: 2fr 3fr;
-  grid-template-rows:auto auto;
+  display:flex;
+  flex-direction:column;
   gap:12px;
 }
 .panel{
@@ -359,3 +358,27 @@ tbody tr:hover{ background:#f3f4f6; }
   .topbar{ flex-direction:column; align-items:flex-start; }
   .topbar-right{ align-self:stretch; justify-content:space-between; }
 }
+
+
+/* Tabs */
+.tabs{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  padding:6px 2px 2px;
+}
+.tab-btn{
+  border:1px solid #d1d5db;
+  background:#fff;
+  border-radius:999px;
+  padding:8px 12px;
+  font-size:12px;
+  cursor:pointer;
+}
+.tab-btn:hover{ background:#f3f4f6; }
+.tab-btn.active{
+  background:#111827;
+  color:#fff;
+  border-color:#111827;
+}
+.tab-btn.hidden{ display:none !important; }
