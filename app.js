@@ -88,13 +88,13 @@ function setStatusClientes(texto){ setText("status-clientes", texto); }
 function podeEditarOuExcluirDemanda(d){
   if(!currentUserProfile || !d) return false;
   if(ehGestor()) return true;
-  if(ehSuporte() && d.user_id === currentUserProfile.id) return true;
+  if(ehSuporte()) return true;
   return false;
 }
 function podeEncaminharDemanda(d){
   if(!currentUserProfile || !d) return false;
   if(ehGestor()) return true;
-  if(ehSuporte() && d.user_id === currentUserProfile.id) return true;
+  if(ehSuporte()) return true;
   return false;
 }
 
@@ -385,7 +385,7 @@ function renderizarClientes(){
       <td>${c.cliente || ""}</td>
       <td>${c.tipo || ""}</td>
       <td>${c.estado || ""}</td>
-      <td>${c.contato || ""}</td>
+      <td>${c.municipio || ""}</td>
       <td>${c.telefone || ""}</td>
       <td>
         <div class="row-actions">
@@ -418,12 +418,12 @@ async function salvarCliente(e){
 
   const cliente = byId("cli-nome").value.trim().toUpperCase();
   const estado = byId("cli-estado").value;
-  const contato = byId("cli-contato").value.trim().toUpperCase();
+  const municipio = byId("cli-municipio").value.trim().toUpperCase();
   const telefone = byId("cli-telefone").value.trim();
   const tipo = byId("cli-tipo").value;
 
-  if(!cliente || !estado || !contato || !telefone || !tipo){
-    alert("Preencha Cliente, Tipo, Estado, Contato e Telefone.");
+  if(!cliente || !estado || !municipio || !telefone || !tipo){
+    alert("Preencha Cliente, Tipo, Estado, Município e Telefone.");
     return;
   }
 
@@ -458,8 +458,8 @@ async function editarCliente(clienteId){
   const novoEstado = prompt("Estado:", c.estado || "");
   if(novoEstado === null) return;
 
-  const novoContato = prompt("Contato:", c.contato || "");
-  if(novoContato === null) return;
+  const novoMunicipio = prompt("Município:", c.municipio || "");
+  if(novoMunicipio === null) return;
 
   const novoTelefone = prompt("Telefone:", c.telefone || "");
   if(novoTelefone === null) return;
@@ -468,7 +468,7 @@ async function editarCliente(clienteId){
     cliente: novoCliente.trim().toUpperCase(),
     tipo: novoTipo.trim().toUpperCase(),
     estado: novoEstado.trim(),
-    contato: novoContato.trim().toUpperCase(),
+    municipio: novoMunicipio.trim().toUpperCase(),
     telefone: novoTelefone.trim()
   }).eq("id", clienteId);
 
@@ -499,55 +499,45 @@ async function excluirCliente(clienteId){
 // =========================
 function montarSelectClientesParaDemanda(){
   const selCliente = byId("dem-cliente");
-  const selTipo = byId("dem-cliente-tipo");
-  const selEstado = byId("dem-cliente-estado");
-  const selContato = byId("dem-cliente-contato");
-  const tel = byId("dem-cliente-telefone");
+  const inpEstado = byId("dem-cliente-estado");
+  const inpMunicipio = byId("dem-municipio");
+  const inpTipoEntidade = byId("dem-tipo-entidade");
+  const inpTel = byId("dem-cliente-telefone");
 
-  if(!selCliente || !selTipo || !selEstado || !selContato || !tel) return;
+  if(!selCliente || !inpEstado || !inpMunicipio || !inpTipoEntidade || !inpTel) return;
 
-  // cliente
   selCliente.innerHTML = "";
   const opt0 = document.createElement("option");
   opt0.value = "";
   opt0.textContent = "Selecione...";
   selCliente.appendChild(opt0);
 
-  const clientesUnicos = Array.from(new Set(clientesCache.map(c => c.cliente).filter(Boolean)))
-    .sort((a,b)=>a.localeCompare(b,"pt-BR"));
-
-  for(const nome of clientesUnicos){
+  for(const c of clientesCache){
     const opt = document.createElement("option");
-    opt.value = nome;
-    opt.textContent = nome;
+    opt.value = c.id; // usa o ID do cliente (mais confiável)
+    opt.textContent = `${c.cliente || ""}`;
     selCliente.appendChild(opt);
   }
 
-  // tipo/estado/contato vazios inicialmente
-  selTipo.innerHTML = `<option value="">Selecione...</option>`;
-  selEstado.innerHTML = `<option value="">Selecione...</option>`;
-  selContato.innerHTML = `<option value="">Selecione...</option>`;
-  tel.value = "";
+  const limpar = () => {
+    inpEstado.value = "";
+    inpMunicipio.value = "";
+    inpTipoEntidade.value = "";
+    inpTel.value = "";
+  };
 
-  // listeners
+  limpar();
+
   selCliente.onchange = () => {
-    preencherTiposPorCliente(selCliente.value);
-    preencherEstadosPorClienteETipo(selCliente.value, selTipo.value);
-    preencherContatosPorClienteTipoEstado(selCliente.value, selTipo.value, selEstado.value);
-    tel.value = "";
-  };
-  selTipo.onchange = () => {
-    preencherEstadosPorClienteETipo(selCliente.value, selTipo.value);
-    preencherContatosPorClienteTipoEstado(selCliente.value, selTipo.value, selEstado.value);
-    tel.value = "";
-  };
-  selEstado.onchange = () => {
-    preencherContatosPorClienteTipoEstado(selCliente.value, selTipo.value, selEstado.value);
-    tel.value = "";
-  };
-  selContato.onchange = () => {
-    const item = acharClienteSelecionado();
-    tel.value = item?.telefone || "";
+    const cli = acharClienteSelecionado();
+    if(!cli){
+      limpar();
+      return;
+    }
+    inpEstado.value = cli.estado || "";
+    inpMunicipio.value = cli.municipio || "";
+    inpTipoEntidade.value = (cli.tipo || "").toString().trim().toUpperCase();
+    inpTel.value = cli.telefone || "";
   };
 }
 
@@ -614,19 +604,9 @@ function preencherContatosPorClienteTipoEstado(clienteNome, tipo, estado){
 }
 
 function acharClienteSelecionado(){
-  const cliente = byId("dem-cliente")?.value || "";
-  const tipo = byId("dem-cliente-tipo")?.value || "";
-  const estado = byId("dem-cliente-estado")?.value || "";
-  const contato = byId("dem-cliente-contato")?.value || "";
-
-  if(!cliente || !tipo || !estado || !contato) return null;
-
-  return clientesCache.find(c =>
-    c.cliente === cliente &&
-    c.tipo === tipo &&
-    c.estado === estado &&
-    c.contato === contato
-  ) || null;
+  const id = byId("dem-cliente")?.value || "";
+  if(!id) return null;
+  return clientesCache.find(c => c.id === id) || null;
 }
 
 // =========================
@@ -729,8 +709,15 @@ async function salvarDemanda(e){
     return;
   }
 
-  const municipio = byId("dem-municipio").value.trim().toUpperCase();
-  const tipoEntidade = byId("dem-tipo-entidade").value.trim().toUpperCase();
+  // Município e Tipo Entidade vêm do cadastro de clientes
+  const cliSel = acharClienteSelecionado();
+  if(!cliSel){
+    alert("Selecione um Cliente (cadastro).");
+    return;
+  }
+
+  const municipio = (cliSel.municipio || "").toString().trim().toUpperCase();
+  const tipoEntidade = (cliSel.tipo || "").toString().trim().toUpperCase();
   const assunto = byId("dem-assunto").value.trim().toUpperCase();
   const descricao = byId("dem-descricao").value.trim();
   const programador = byId("dem-programador").value.trim();
@@ -740,15 +727,8 @@ async function salvarDemanda(e){
   const linkTrello = byId("dem-link-trello").value.trim();
   const linkEmail = byId("dem-link-email").value.trim();
 
-  if(!municipio || !assunto || !descricao){
-    alert("Preencha Município, Assunto e Descrição.");
-    return;
-  }
-
-  // cliente selecionado
-  const cliSel = acharClienteSelecionado();
-  if(!cliSel){
-    alert("Selecione Cliente, Tipo, Estado e Contato (cadastro).");
+  if(!assunto || !descricao){
+    alert("Preencha Assunto e Descrição.");
     return;
   }
 
@@ -766,9 +746,7 @@ async function salvarDemanda(e){
 
     cliente_id: cliSel.id,
     cliente_nome: cliSel.cliente,
-    cliente_tipo: cliSel.tipo,
     cliente_estado: cliSel.estado,
-    cliente_contato: cliSel.contato,
     cliente_telefone: cliSel.telefone,
 
     assunto,
@@ -936,8 +914,8 @@ async function excluirDemanda(demandaId){
   const d = demandasCache.find(x => x.id === demandaId);
   if(!d) return;
 
-  if(filtrosAtuais.consultarTodas){
-    alert("Modo 'Consultar todas' é somente leitura.");
+  if(filtrosAtuais.consultarTodas && !ehGestor()){
+    alert("Modo 'Consultar todas' é somente leitura (exceto Gestor).");
     return;
   }
 
@@ -959,12 +937,12 @@ async function excluirDemanda(demandaId){
   await carregarDemandas();
 }
 
-async function editarDemanda(demandaId){
+async async function editarDemanda(demandaId){
   const d = demandasCache.find(x => x.id === demandaId);
   if(!d) return;
 
-  if(filtrosAtuais.consultarTodas){
-    alert("Modo 'Consultar todas' é somente leitura.");
+  if(filtrosAtuais.consultarTodas && !ehGestor()){
+    alert("Modo 'Consultar todas' é somente leitura (exceto Gestor).");
     return;
   }
 
@@ -973,35 +951,7 @@ async function editarDemanda(demandaId){
     return;
   }
 
-  const municipio = prompt("Município:", d.municipio || "");
-  if(municipio === null) return;
-  const assunto = prompt("Assunto:", d.assunto || "");
-  if(assunto === null) return;
-  const descricao = prompt("Descrição:", d.descricao || "");
-  if(descricao === null) return;
-
-  const status = prompt("Status (ABERTA, EM ANÁLISE, NA PROGRAMAÇÃO, ENCAMINHADA, CONCLUÍDA):", d.status || "");
-  if(status === null) return;
-
-  const prioridade = prompt("Prioridade (BAIXA, MÉDIA, ALTA, URGENTE):", d.prioridade || "");
-  if(prioridade === null) return;
-
-  const payload = {
-    municipio: municipio.trim().toUpperCase(),
-    assunto: assunto.trim().toUpperCase(),
-    descricao: descricao.trim(),
-    status: status.trim().toUpperCase(),
-    prioridade: prioridade.trim().toUpperCase()
-  };
-
-  const { error } = await supabaseClient.from("demandas").update(payload).eq("id", demandaId);
-  if(error){
-    console.error("Erro ao editar demanda:", error);
-    alert("Erro ao editar demanda: " + error.message);
-    return;
-  }
-
-  await carregarDemandas();
+  abrirModalEditarDemanda(d);
 }
 
 // =========================
@@ -1009,6 +959,91 @@ async function editarDemanda(demandaId){
 // =========================
 function abrirModal(){ show("modal-overlay"); show("modal-detalhes"); }
 function fecharModal(){ hide("modal-overlay"); hide("modal-detalhes"); }
+
+function abrirModalEditarDemanda(d){
+  // preencher campos
+  show("modal-edit-overlay");
+  show("modal-edit-demanda");
+
+  byId("edit-demanda-id").value = d.id;
+  setText("edit-demanda-sub", `${d.codigo || ""} · ${d.municipio || "-"} · ${d.assunto || "-"}`);
+
+  byId("edit-demanda-cliente").value = d.cliente_nome || "-";
+  byId("edit-demanda-municipio").value = d.municipio || "";
+  byId("edit-demanda-tipoentidade").value = d.tipo_entidade || "";
+  byId("edit-demanda-telefone").value = d.cliente_telefone || "";
+
+  byId("edit-demanda-assunto").value = d.assunto || "";
+  byId("edit-demanda-descricao").value = d.descricao || "";
+  byId("edit-demanda-status").value = d.status || "ABERTA";
+  byId("edit-demanda-prioridade").value = d.prioridade || "MÉDIA";
+  byId("edit-demanda-programador").value = d.programador || "";
+  byId("edit-demanda-forma").value = d.forma_atendimento || "";
+  byId("edit-demanda-trello").value = d.link_trello || "";
+  byId("edit-demanda-email").value = d.link_email || "";
+  byId("edit-demanda-tags").value = Array.isArray(d.tags) ? d.tags.join(", ") : "";
+}
+
+function fecharModalEditarDemanda(){
+  hide("modal-edit-overlay");
+  hide("modal-edit-demanda");
+}
+
+async function salvarEdicaoDemanda(e){
+  e.preventDefault();
+
+  const demandaId = byId("edit-demanda-id").value;
+  const d = demandasCache.find(x => x.id === demandaId);
+  if(!d) return;
+
+  if(!podeEditarOuExcluirDemanda(d)){
+    alert("Você não tem permissão para editar esta demanda.");
+    return;
+  }
+
+  const assunto = byId("edit-demanda-assunto").value.trim().toUpperCase();
+  const descricao = byId("edit-demanda-descricao").value.trim();
+  const status = byId("edit-demanda-status").value.trim().toUpperCase();
+  const prioridade = byId("edit-demanda-prioridade").value.trim().toUpperCase();
+  const programador = byId("edit-demanda-programador").value.trim();
+  const formaAtendimento = byId("edit-demanda-forma").value.trim();
+  const linkTrello = byId("edit-demanda-trello").value.trim();
+  const linkEmail = byId("edit-demanda-email").value.trim();
+
+  const tagsRaw = byId("edit-demanda-tags").value;
+  const tags = tagsRaw
+    .split(",")
+    .map(t => normalizarTag(t))
+    .filter(Boolean);
+
+  if(!assunto || !descricao){
+    alert("Preencha Assunto e Descrição.");
+    return;
+  }
+
+  const payload = {
+    assunto,
+    descricao,
+    status,
+    prioridade,
+    programador: programador || null,
+    forma_atendimento: formaAtendimento || null,
+    link_trello: linkTrello || null,
+    link_email: linkEmail || null,
+    tags
+  };
+
+  const { error } = await supabaseClient.from("demandas").update(payload).eq("id", demandaId);
+  if(error){
+    console.error("Erro ao editar demanda:", error);
+    alert("Erro ao salvar alterações.");
+    return;
+  }
+
+  fecharModalEditarDemanda();
+  await carregarDemandas();
+}
+
 
 async function abrirModalDemanda(demandaId){
   const d = demandasCache.find(x => x.id === demandaId);
@@ -1024,9 +1059,7 @@ async function abrirModalDemanda(demandaId){
 
   setText("det-cliente", d.cliente_nome || "-");
   setText("det-cliente-tipo", d.cliente_tipo || "-");
-  setText("det-cliente-estado", d.cliente_estado || "-");
-  setText("det-cliente-contato", d.cliente_contato || "-");
-  setText("det-cliente-telefone", d.cliente_telefone || "-");
+  setText("det-cliente-estado", d.cliente_estado || "-");  setText("det-cliente-telefone", d.cliente_telefone || "-");
 
   setText("det-tipo-entidade", d.tipo_entidade || "-");
   setText("det-assunto", d.assunto || "-");
@@ -1102,8 +1135,8 @@ async function encaminharDemanda(demandaId){
   const d = demandasCache.find(x => x.id === demandaId);
   if(!d) return;
 
-  if(filtrosAtuais.consultarTodas){
-    alert("Modo 'Consultar todas' é somente leitura.");
+  if(filtrosAtuais.consultarTodas && !ehGestor()){
+    alert("Modo 'Consultar todas' é somente leitura (exceto Gestor).");
     return;
   }
 
@@ -1586,6 +1619,11 @@ function registrarListeners(){
   byId("btn-fechar-modal")?.addEventListener("click", fecharModal);
   byId("modal-overlay")?.addEventListener("click", fecharModal);
 
+  // Modal editar demanda
+  byId("btn-fechar-edit-demanda")?.addEventListener("click", fecharModalEditarDemanda);
+  byId("modal-edit-overlay")?.addEventListener("click", fecharModalEditarDemanda);
+  byId("form-edit-demanda")?.addEventListener("submit", salvarEdicaoDemanda);
+
   // Modal atualização
   byId("btn-fechar-upd")?.addEventListener("click", fecharModalAtualizacao);
   byId("modal-upd-overlay")?.addEventListener("click", fecharModalAtualizacao);
@@ -1598,10 +1636,6 @@ function registrarListeners(){
       adicionarTagsDoInput();
     }
   });
-
-  // botão gráficos
-  byId("btn-graficos")?.addEventListener("click", () => {
-    alert("Tela de gráficos pode ser implementada com Chart.js usando demandasCache.");
   });
 
   // ESC fecha modais

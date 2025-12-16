@@ -86,8 +86,7 @@
       <div class="topbar-right">
         <span id="user-label" class="user-label"></span>
         <span class="badge ok">Supabase conectado</span>
-        <button id="btn-graficos" class="btn info" type="button">Gráficos</button>
-        <button id="btn-logout" class="btn danger" type="button">Sair</button>
+<button id="btn-logout" class="btn danger" type="button">Sair</button>
       </div>
     </header>
 
@@ -96,6 +95,7 @@
         <button class="tab-btn active" type="button" id="tab-demandas" data-tab="sec-lista-demandas">DEMANDAS</button>
         <button class="tab-btn" type="button" id="tab-cad-demanda" data-tab="sec-cadastro-demanda">CADASTRAR DEMANDA</button>
         <button class="tab-btn" type="button" id="tab-clientes" data-tab="sec-clientes">CADASTRO DE CLIENTES</button>
+        <button class="tab-btn" type="button" id="tab-graficos" data-tab="sec-graficos">GRAFICOS</button>
         <button class="tab-btn hidden" type="button" id="tab-usuarios" data-tab="sec-usuarios">CADASTRO DE USUÁRIOS <span id="badge-pendentes" class="tab-badge hidden"></span></button>
       </nav>
       <!-- CADASTRO DE CLIENTES (apenas GESTOR e SUPORTE) -->
@@ -137,8 +137,8 @@
               </select>
             </div>
             <div class="col">
-              <label for="cli-contato">Contato</label>
-              <input type="text" id="cli-contato" placeholder="ALLISSON" />
+              <label for="cli-municipio">Município</label>
+              <input type="text" id="cli-municipio" placeholder="CRATEÚS" />
             </div>
           </div>
 
@@ -159,7 +159,7 @@
                 <th>Cliente</th>
                 <th>Tipo</th>
                 <th>Estado</th>
-                <th>Contato</th>
+                <th>Município</th>
                 <th>Telefone</th>
                 <th class="col-actions">Ações</th>
               </tr>
@@ -182,40 +182,31 @@
             <div class="col">
               <label for="dem-cliente">Cliente (cadastro)</label>
               <select id="dem-cliente"></select>
-              <p class="hint">Ao escolher o cliente, Estado e Contato filtram automaticamente.</p>
-            </div>
-            <div class="col">
-              <label for="dem-cliente-tipo">Tipo</label>
-              <select id="dem-cliente-tipo"></select>
+              <p class="hint">Ao escolher o cliente, Município e Tipo Entidade são preenchidos automaticamente.</p>
             </div>
           </div>
 
           <div class="row">
             <div class="col">
               <label for="dem-cliente-estado">Estado</label>
-              <select id="dem-cliente-estado"></select>
+              <input type="text" id="dem-cliente-estado" readonly />
             </div>
             <div class="col">
-              <label for="dem-cliente-contato">Contato</label>
-              <select id="dem-cliente-contato"></select>
+              <label for="dem-municipio">Município</label>
+              <input type="text" id="dem-municipio" readonly />
             </div>
           </div>
+
+          
 
           <div class="row">
             <div class="col">
               <label for="dem-cliente-telefone">Telefone</label>
               <input type="text" id="dem-cliente-telefone" readonly />
             </div>
-          </div>
-
-          <div class="row">
             <div class="col">
-              <label for="dem-municipio">Município</label>
-              <input type="text" id="dem-municipio" />
-            </div>
-            <div class="col">
-              <label for="dem-tipo-entidade">Tipo Entidade (CM, PM, CONSORCIO, IPM)</label>
-              <input type="text" id="dem-tipo-entidade" />
+              <label for="dem-tipo-entidade">Tipo Entidade</label>
+              <input type="text" id="dem-tipo-entidade" readonly />
             </div>
           </div>
 
@@ -431,7 +422,6 @@
           <div><strong>Cliente:</strong> <span id="det-cliente"></span></div>
           <div><strong>Cliente Tipo:</strong> <span id="det-cliente-tipo"></span></div>
           <div><strong>Cliente Estado:</strong> <span id="det-cliente-estado"></span></div>
-          <div><strong>Cliente Contato:</strong> <span id="det-cliente-contato"></span></div>
           <div><strong>Cliente Telefone:</strong> <span id="det-cliente-telefone"></span></div>
 
           <div><strong>Tipo Entidade:</strong> <span id="det-tipo-entidade"></span></div>
@@ -496,7 +486,110 @@
     </div>
   </div>
 
-  <!-- MODAL EDITAR ATUALIZAÇÃO -->
+  
+<!-- MODAL EDITAR DEMANDA -->
+<div id="modal-edit-overlay" class="modal-overlay hidden"></div>
+<div id="modal-edit-demanda" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="edit-demanda-titulo">
+  <div class="modal-header">
+    <div>
+      <h2 id="edit-demanda-titulo">Editar demanda</h2>
+      <p class="modal-sub" id="edit-demanda-sub"></p>
+    </div>
+    <button id="btn-fechar-edit-demanda" class="btn ghost" type="button">Fechar</button>
+  </div>
+
+  <div class="modal-body">
+    <form id="form-edit-demanda" class="form-grid">
+      <input type="hidden" id="edit-demanda-id" />
+
+      <div class="row">
+        <div class="col">
+          <label>Cliente</label>
+          <input type="text" id="edit-demanda-cliente" readonly />
+        </div>
+        <div class="col">
+          <label>Município</label>
+          <input type="text" id="edit-demanda-municipio" readonly />
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <label>Tipo Entidade</label>
+          <input type="text" id="edit-demanda-tipoentidade" readonly />
+        </div>
+        <div class="col">
+          <label>Telefone</label>
+          <input type="text" id="edit-demanda-telefone" readonly />
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <label for="edit-demanda-assunto">Assunto</label>
+          <input type="text" id="edit-demanda-assunto" />
+        </div>
+        <div class="col">
+          <label for="edit-demanda-status">Status</label>
+          <select id="edit-demanda-status">
+            <option>ABERTA</option>
+            <option>EM ANÁLISE</option>
+            <option>NA PROGRAMAÇÃO</option>
+            <option>ENCAMINHADA</option>
+            <option>CONCLUÍDA</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <label for="edit-demanda-prioridade">Prioridade</label>
+          <select id="edit-demanda-prioridade">
+            <option>BAIXA</option>
+            <option>MÉDIA</option>
+            <option>ALTA</option>
+            <option>URGENTE</option>
+          </select>
+        </div>
+        <div class="col">
+          <label for="edit-demanda-programador">Programador</label>
+          <input type="text" id="edit-demanda-programador" placeholder="(opcional)" />
+        </div>
+      </div>
+
+      <label for="edit-demanda-descricao">Descrição</label>
+      <textarea id="edit-demanda-descricao"></textarea>
+
+      <div class="row">
+        <div class="col">
+          <label for="edit-demanda-forma">Forma Atendimento</label>
+          <input type="text" id="edit-demanda-forma" placeholder="(opcional)" />
+        </div>
+        <div class="col">
+          <label for="edit-demanda-tags">Tags (separadas por vírgula)</label>
+          <input type="text" id="edit-demanda-tags" placeholder="ex: folha, erro, urgencia" />
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <label for="edit-demanda-trello">Link Trello</label>
+          <input type="text" id="edit-demanda-trello" placeholder="(opcional)" />
+        </div>
+        <div class="col">
+          <label for="edit-demanda-email">Link Email</label>
+          <input type="text" id="edit-demanda-email" placeholder="(opcional)" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:8px;">
+        <button class="btn primary" type="submit">Salvar alterações</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL EDITAR ATUALIZAÇÃO -->
   <div id="modal-upd-overlay" class="modal-overlay hidden"></div>
   <div id="modal-upd" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="upd-titulo">
     <div class="modal-header">
@@ -517,3 +610,23 @@
   </div>
 </body>
 </html>
+      <!-- GRAFICOS -->
+      <section class="panel wide hidden" id="sec-graficos">
+        <div class="panel-header">
+          <h2>Gráficos</h2>
+          <span class="status-bar">Em breve</span>
+        </div>
+        <p class="hint">Aba reservada para o desenvolvimento futuro de gráficos.</p>
+      </section>
+
+
+      <!-- GRAFICOS -->
+      <section class="panel wide hidden" id="sec-graficos">
+        <div class="panel-header">
+          <h2>Gráficos</h2>
+          <span class="status-bar">Em breve</span>
+        </div>
+        <p class="hint">Aba reservada para o desenvolvimento futuro de gráficos.</p>
+      </section>
+
+
