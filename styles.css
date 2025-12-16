@@ -1,30 +1,325 @@
-body { font-family: Arial; background:#f4f4f4; }
-.hidden { display:none; }
+/* =========================================================
+   RESET e Estilos Globais
+   ========================================================= */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Arial', sans-serif;
+  background-color: #f4f4f4;
+  color: #333;
+  padding: 20px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* =========================================================
+   TOPO / HEADER
+   ========================================================= */
 
 .topo {
-  background:#222;
-  color:#fff;
-  padding:10px;
-  display:flex;
-  justify-content:space-between;
+  background-color: #222;
+  color: #fff;
+  padding: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.tabs { background:#ddd; padding:5px; }
-.tab-btn { margin-right:5px; cursor:pointer; }
-.tab-btn.active { font-weight:bold; }
+.topo .brand {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.topo .topo-right {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.topo button {
+  background-color: #e74c3c;
+  color: #fff;
+  padding: 10px;
+  border: none;
+  cursor: pointer;
+}
+
+.topo button:hover {
+  background-color: #c0392b;
+}
+
+/* =========================================================
+   ABAS
+   ========================================================= */
+
+.tabs {
+  display: flex;
+  justify-content: space-around;
+  background-color: #34495e;
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 16px;
+  padding: 10px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  border-radius: 5px;
+}
+
+.tab-btn:hover {
+  background-color: #2c3e50;
+}
+
+.tab-btn.active {
+  background-color: #16a085;
+}
 
 .tab-content {
-  background:#fff;
-  padding:10px;
-  margin-top:5px;
+  background-color: #fff;
+  padding: 20px;
+  margin-top: 20px;
+  border-radius: 5px;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-input, select, textarea, button {
-  display:block;
-  margin:5px 0;
-  padding:5px;
-  width:100%;
+/* =========================================================
+   FORMULÁRIOS e ENTRADAS
+   ========================================================= */
+
+input, select, textarea {
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  width: 100%;
+  margin-bottom: 15px;
 }
 
-table { width:100%; border-collapse:collapse; }
-th, td { border:1px solid #ccc; padding:5px; }
+input[type="text"], input[type="email"], input[type="password"], input[type="date"] {
+  font-size: 14px;
+}
+
+textarea {
+  font-size: 14px;
+  resize: vertical;
+}
+
+button {
+  background-color: #2980b9;
+  color: #fff;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+button:hover {
+  background-color: #1c5f76;
+}
+
+/* =========================================================
+   TABELAS
+   ========================================================= */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+table th, table td {
+  padding: 12px;
+  text-align: left;
+  border: 1px solid #ddd;
+}
+
+table th {
+  background-color: #2980b9;
+  color: #fff;
+}
+
+table tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+table tr:hover {
+  background-color: #f1f1f1;
+}
+
+/* =========================================================
+   MODAIS
+   ========================================================= */
+
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.overlay .modal {
+  background-color: #fff;
+  padding: 30px;
+  max-width: 600px;
+  width: 100%;
+  border-radius: 5px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-head h3 {
+  margin: 0;
+}
+
+.modal-body {
+  margin-top: 20px;
+}
+
+.modal-body label {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+.modal-body textarea, .modal-body input {
+  width: 100%;
+  margin-bottom: 15px;
+}
+
+.overlay .modal button {
+  background-color: #e74c3c;
+  color: #fff;
+  padding: 10px 20px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.overlay .modal button:hover {
+  background-color: #c0392b;
+}
+
+/* =========================================================
+   FILTROS
+   ========================================================= */
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.filters .filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.filters .col {
+  flex: 1 1 250px;
+}
+
+.filters input, .filters select {
+  width: 100%;
+}
+
+.filters .checks {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+}
+
+.check input {
+  margin-right: 5px;
+}
+
+.filter-row .col label {
+  font-weight: bold;
+}
+
+/* =========================================================
+   CHIPS (tags no cadastro)
+   ========================================================= */
+
+.chip {
+  background-color: #e74c3c;
+  color: #fff;
+  padding: 8px;
+  margin: 5px;
+  border-radius: 20px;
+  display: inline-block;
+  font-size: 12px;
+}
+
+.chip button {
+  background-color: transparent;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.chip button:hover {
+  color: #ccc;
+}
+
+/* =========================================================
+   MISC
+   ========================================================= */
+
+.card {
+  background-color: #fff;
+  padding: 20px;
+  margin-top: 20px;
+  border-radius: 5px;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.card h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 18px;
+}
+
+.card .kv {
+  margin-bottom: 10px;
+}
+
+.card .kv span {
+  font-weight: bold;
+}
+
+.card .kv strong {
+  font-weight: normal;
+}
+
+.actions-row button {
+  margin-right: 10px;
+}
