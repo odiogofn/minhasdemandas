@@ -44,9 +44,13 @@ function validarSenhaSimples(senha){
   return /^[A-Za-z0-9]{1,10}$/.test(senha);
 }
 
-function ehGestor(){ return currentUserProfile && currentUserProfile.tipo === "GESTOR"; }
-function ehSuporte(){ return currentUserProfile && currentUserProfile.tipo === "SUPORTE"; }
-function ehProgramador(){ return currentUserProfile && currentUserProfile.tipo === "PROGRAMADOR"; }
+function tipoPerfil(){
+  return (currentUserProfile?.tipo || "").toString().trim().toUpperCase();
+}
+
+function ehGestor(){ return tipoPerfil() === "GESTOR"; }
+function ehSuporte(){ return tipoPerfil() === "SUPORTE"; }
+function ehProgramador(){ return tipoPerfil() === "PROGRAMADOR"; }
 
 function setStatusBar(texto){ setText("status-bar", texto); }
 function setStatusClientes(texto){ setText("status-clientes", texto); }
