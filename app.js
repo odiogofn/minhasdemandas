@@ -385,7 +385,6 @@ function renderizarClientes(){
     tr.innerHTML = `
       <td>${c.cliente || ""}</td>
       <td>${c.municipio || ""}</td>
-      <td>${c.tipo || ""}</td>
       <td>${c.estado || ""}</td>
       <td>${c.contato || ""}</td>
       <td>${c.telefone || ""}</td>
@@ -423,17 +422,15 @@ async function salvarCliente(e){
   const estado = byId("cli-estado").value;
   const contato = byId("cli-contato").value.trim().toUpperCase();
   const telefone = byId("cli-telefone").value.trim();
-  const tipo = byId("cli-tipo").value;
-
-  if(!cliente || !municipio || !estado || !contato || !telefone || !tipo){
-    alert("Preencha Cliente, Tipo, Estado, Contato e Telefone.");
+  if(!cliente || !municipio || !estado || !contato || !telefone){
+    alert("Preencha Cliente, Município, Estado, Contato e Telefone.");
     return;
   }
 
   setStatusClientes("Salvando cliente...");
 
   const { error } = await supabaseClient.from("clientes").insert([{
-    cliente, municipio, estado, contato, telefone, tipo
+    cliente, municipio, estado, contato, telefone
   }]);
 
   if(error){
@@ -458,8 +455,8 @@ async function editarCliente(clienteId){
   const novoMunicipio = prompt("Município:", c.municipio || "");
   if(novoMunicipio === null) return;
 
-  const novoTipo = prompt("Tipo (CM, PM, AUTARQUIA, IPM, CONSORCIO):", c.tipo || "");
-  if(novoTipo === null) return;
+  const novoMunicipio = prompt("Município:", c.municipio || "");
+  if(novoMunicipio === null) return;
 
   const novoEstado = prompt("Estado:", c.estado || "");
   if(novoEstado === null) return;
@@ -473,7 +470,6 @@ async function editarCliente(clienteId){
   const { error } = await supabaseClient.from("clientes").update({
     cliente: novoCliente.trim().toUpperCase(),
     municipio: novoMunicipio.trim().toUpperCase(),
-    tipo: novoTipo.trim().toUpperCase(),
     estado: novoEstado.trim(),
     contato: novoContato.trim().toUpperCase(),
     telefone: novoTelefone.trim()
@@ -506,7 +502,6 @@ async function excluirCliente(clienteId){
 // =========================
 function montarSelectClientesParaDemanda(){
   const selCliente = byId("dem-cliente");
-  const selTipo = byId("dem-cliente-tipo");
   const selEstado = byId("dem-cliente-estado");
   const selContato = byId("dem-cliente-contato");
   const tel = byId("dem-cliente-telefone");
@@ -514,7 +509,7 @@ function montarSelectClientesParaDemanda(){
   const localizarInput = byId("dem-localizar-cliente");
   const datalist = byId("dl-clientes");
 
-  if(!selCliente || !selTipo || !selEstado || !selContato || !tel || !municipioEl) return;
+  if(!selCliente || !selEstado || !selContato || !tel || !municipioEl) return;
 
   // cliente
   selCliente.innerHTML = "";
@@ -549,28 +544,19 @@ function montarSelectClientesParaDemanda(){
     }
   }
 
-  // tipo/estado/contato vazios inicialmente
-  selTipo.innerHTML = `<option value="">Selecione...</option>`;
   selEstado.innerHTML = `<option value="">Selecione...</option>`;
   selContato.innerHTML = `<option value="">Selecione...</option>`;
   tel.value = "";
 
   // listeners
   selCliente.onchange = () => {
-    preencherTiposPorCliente(selCliente.value);
-    preencherEstadosPorClienteETipo(selCliente.value, selTipo.value);
-    preencherContatosPorClienteTipoEstado(selCliente.value, selTipo.value, selEstado.value);
-    tel.value = "";
-    municipioEl.value = "";
-  };
-  selTipo.onchange = () => {
-    preencherEstadosPorClienteETipo(selCliente.value, selTipo.value);
-    preencherContatosPorClienteTipoEstado(selCliente.value, selTipo.value, selEstado.value);
+    preencherEstadosPorCliente(selCliente.value);
+    preencherContatosPorClienteEstado(selCliente.value, selEstado.value);
     tel.value = "";
     municipioEl.value = "";
   };
   selEstado.onchange = () => {
-    preencherContatosPorClienteTipoEstado(selCliente.value, selTipo.value, selEstado.value);
+    preencherContatosPorClienteEstado(selCliente.value, selEstado.value);
     tel.value = "";
     municipioEl.value = "";
   };
@@ -590,11 +576,10 @@ function montarSelectClientesParaDemanda(){
       if(!c) return;
 
       selCliente.value = c.cliente || "";
-      preencherTiposPorCliente(selCliente.value);
+      preencherTiposEntidadePorCliente(selCliente.value);
       selTipo.value = c.tipo || "";
-      preencherEstadosPorClienteETipo(selCliente.value, selTipo.value);
-      selEstado.value = c.estado || "";
-      preencherContatosPorClienteTipoEstado(selCliente.value, selTipo.value, selEstado.value);
+        selEstado.value = c.estado || "";
+      preencherContatosPorClienteEstado(selCliente.value, selEstado.value);
       selContato.value = c.contato || "";
       tel.value = c.telefone || "";
       municipioEl.value = c.municipio || "";
@@ -603,33 +588,15 @@ function montarSelectClientesParaDemanda(){
 
 }
 
-function preencherTiposPorCliente(clienteNome){
-  const selTipo = byId("dem-cliente-tipo");
-  if(!selTipo) return;
 
-  selTipo.innerHTML = `<option value="">Selecione...</option>`;
-  if(!clienteNome) return;
-
-  const tipos = Array.from(
-    new Set(clientesCache.filter(c => c.cliente === clienteNome).map(c => c.tipo).filter(Boolean))
-  ).sort((a,b)=>a.localeCompare(b,"pt-BR"));
-
-  for(const t of tipos){
-    const opt = document.createElement("option");
-    opt.value = t;
-    opt.textContent = t;
-    selTipo.appendChild(opt);
-  }
-}
-
-function preencherEstadosPorClienteETipo(clienteNome, tipo){
+function preencherEstadosPorCliente(clienteNome){
   const selEstado = byId("dem-cliente-estado");
   if(!selEstado) return;
 
   selEstado.innerHTML = `<option value="">Selecione...</option>`;
   if(!clienteNome) return;
 
-  const filtrados = clientesCache.filter(c => c.cliente === clienteNome && (!tipo || c.tipo === tipo));
+  const filtrados = clientesCache.filter(c => c.cliente === clienteNome);
   const estados = Array.from(new Set(filtrados.map(c => c.estado).filter(Boolean)))
     .sort((a,b)=>a.localeCompare(b,"pt-BR"));
 
@@ -641,7 +608,7 @@ function preencherEstadosPorClienteETipo(clienteNome, tipo){
   }
 }
 
-function preencherContatosPorClienteTipoEstado(clienteNome, tipo, estado){
+function preencherContatosPorClienteEstado(clienteNome, estado){
   const selContato = byId("dem-cliente-contato");
   if(!selContato) return;
 
@@ -650,7 +617,6 @@ function preencherContatosPorClienteTipoEstado(clienteNome, tipo, estado){
 
   const filtrados = clientesCache.filter(c =>
     c.cliente === clienteNome &&
-    (!tipo || c.tipo === tipo) &&
     (!estado || c.estado === estado)
   );
 
@@ -665,17 +631,15 @@ function preencherContatosPorClienteTipoEstado(clienteNome, tipo, estado){
   }
 }
 
-function acharClienteSelecionado(){
+function acharClienteSelecionado(){function acharClienteSelecionado(){
   const cliente = byId("dem-cliente")?.value || "";
-  const tipo = byId("dem-cliente-tipo")?.value || "";
   const estado = byId("dem-cliente-estado")?.value || "";
   const contato = byId("dem-cliente-contato")?.value || "";
 
-  if(!cliente || !tipo || !estado || !contato) return null;
+  if(!cliente || !estado || !contato) return null;
 
   return clientesCache.find(c =>
     c.cliente === cliente &&
-    c.tipo === tipo &&
     c.estado === estado &&
     c.contato === contato
   ) || null;
@@ -896,7 +860,7 @@ async function salvarDemanda(e){
     cliente_id: cliSel.id,
     cliente_nome: cliSel.cliente,
     cliente_municipio: cliSel.municipio,
-    cliente_tipo: cliSel.tipo,
+    cliente_municipio: cliSel.municipio,
     cliente_estado: cliSel.estado,
     cliente_contato: cliSel.contato,
     cliente_telefone: cliSel.telefone,
@@ -1009,9 +973,6 @@ function renderizarDemandas(){
   }
   if(filtrosAtuais.estado !== "TODOS"){
     lista = lista.filter(d => (d.cliente_estado || "") === filtrosAtuais.estado);
-  }
-  if(filtrosAtuais.tipoEntidade !== "TODOS"){
-    lista = lista.filter(d => (d.tipo_entidade || "") === filtrosAtuais.tipoEntidade);
   }
 
   if(filtrosAtuais.buscaTexto.trim() !== ""){
@@ -1175,7 +1136,6 @@ async function abrirModalDemanda(demandaId){
   setText("det-cliente-contato", d.cliente_contato || "-");
   setText("det-cliente-telefone", d.cliente_telefone || "-");
 
-  setText("det-tipo-entidade", d.tipo_entidade || "-");
   setText("det-assunto", d.assunto || "-");
   setText("det-descricao", d.descricao || "-");
 
@@ -1494,7 +1454,6 @@ function atualizarFiltrosSugestoes(){
     if(d.programador) programadores.add(d.programador);
     if(d.municipio) municipios.add(d.municipio);
     if(d.cliente_estado) estados.add(d.cliente_estado);
-    if(d.tipo_entidade) tiposEntidade.add(d.tipo_entidade);
     if(d.forma_atendimento){
       d.forma_atendimento.split(",").map(s=>s.trim()).filter(Boolean).forEach(fa => formasAtendimento.add(fa));
     }
@@ -1570,7 +1529,6 @@ function onFiltroAtendenteChange(){ filtrosAtuais.atendente = byId("filtro-atend
 function onFiltroProgramadorChange(){ filtrosAtuais.programador = byId("filtro-programador").value; renderizarDemandas(); }
 function onFiltroMunicipioChange(){ filtrosAtuais.municipio = byId("filtro-municipio").value; renderizarDemandas(); }
 function onFiltroEstadoChange(){ filtrosAtuais.estado = byId("filtro-estado").value; renderizarDemandas(); }
-function onFiltroTipoEntidadeChange(){ filtrosAtuais.tipoEntidade = byId("filtro-tipo-entidade").value; renderizarDemandas(); }
 function onFiltroOcultarConcluidasChange(){ filtrosAtuais.ocultarConcluidas = byId("filtro-ocultar-concluidas").checked; renderizarDemandas(); }
 function onFiltroConsultarTodasChange(){ filtrosAtuais.consultarTodas = byId("filtro-consultar-todas").checked; renderizarDemandas(); }
 function onBuscaTextoKeyup(){ filtrosAtuais.buscaTexto = byId("filtro-busca").value; renderizarDemandas(); }
@@ -1678,16 +1636,12 @@ async function editarUsuarioPrompt(u){
   const novoEmail = prompt("Novo email:", u.email || "");
   if(novoEmail === null) return;
 
-  const novoTipo = prompt("Tipo (GESTOR, SUPORTE, PROGRAMADOR):", u.tipo || "");
-  if(novoTipo === null) return;
-
   const novaUnidade = prompt("Unidade:", u.unidade || "");
   if(novaUnidade === null) return;
 
   const { error } = await supabaseClient.from("usuarios").update({
     nome: novoNome.trim(),
     email: novoEmail.trim(),
-    tipo: novoTipo.trim().toUpperCase(),
     unidade: novaUnidade.trim()
   }).eq("id", u.id);
 
@@ -1770,7 +1724,6 @@ function registrarListeners(){
   byId("filtro-programador")?.addEventListener("change", onFiltroProgramadorChange);
   byId("filtro-municipio")?.addEventListener("change", onFiltroMunicipioChange);
   byId("filtro-estado")?.addEventListener("change", onFiltroEstadoChange);
-  byId("filtro-tipo-entidade")?.addEventListener("change", onFiltroTipoEntidadeChange);
   byId("filtro-ocultar-concluidas")?.addEventListener("change", onFiltroOcultarConcluidasChange);
   byId("filtro-consultar-todas")?.addEventListener("change", onFiltroConsultarTodasChange);
   byId("filtro-busca")?.addEventListener("keyup", onBuscaTextoKeyup);

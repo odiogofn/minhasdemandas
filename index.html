@@ -107,33 +107,29 @@
 
         <form id="form-cliente" class="form-grid">
           <div class="row">
-            <div class="col">
-              <label for="cli-nome">Cliente</label>
-              <input type="text" id="cli-nome" placeholder="CRATEÚS" />
-            </div>
-            <div class="col">
-              <label for="cli-tipo">Tipo</label>
-            </div>
-            <div class="col">
-              <label for="cli-municipio">Município</label>
-              <input type="text" id="cli-municipio" placeholder="ex: CRATEÚS" />
-            </div>
-            <div class="col">
-              <label for="cli-tipo">Tipo Entidade</label>
-              <select id="cli-tipo">
-                <option value="">Selecione...</option>
-                <option value="CM">CM</option>
-                <option value="PM">PM</option>
-                <option value="AUTARQUIA">Autarquia</option>
-                <option value="IPM">IPM</option>
-                <option value="CONSORCIO">Consórcio</option>
-              </select>
-            </div>
-          </div>
+<div class="col">
+  <label for="cli-nome">Cliente</label>
+  <input type="text" id="cli-nome" placeholder="CRATEÚS" />
+</div>
+<div class="col">
+  <label for="cli-tipo-entidade">Tipo Entidade</label>
+  <select id="cli-tipo-entidade">
+    <option value="">Selecione...</option>
+    <option value="AUTARQUIA">AUTARQUIA</option>
+    <option value="CM">CM</option>
+    <option value="CONSORCIO">CONSORCIO</option>
+    <option value="IPM">IPM</option>
+  </select>
+</div>
+</div>
 
           <div class="row">
-            <div class="col">
-              <label for="cli-estado">Estado</label>
+  <div class="col">
+    <label for="cli-municipio">Município</label>
+    <input type="text" id="cli-municipio" placeholder="MILAGRES" />
+  </div>
+  <div class="col">
+    <label for="cli-estado">Estado</label>
               <select id="cli-estado">
                 <option value="">Selecione...</option>
                 <option value="Maranhão">Maranhão</option>
@@ -165,8 +161,7 @@
               <tr>
                 <th>Cliente</th>
                 <th>Município</th>
-                <th>Tipo</th>
-                <th>Estado</th>
+                                <th>Estado</th>
                 <th>Contato</th>
                 <th>Telefone</th>
                 <th class="col-actions">Ações</th>
@@ -202,12 +197,7 @@
               <label for="dem-cliente">Cliente (cadastro)</label>
               <select id="dem-cliente"></select>
               <p class="hint">Ao escolher o cliente, Estado e Contato filtram automaticamente.</p>
-            </div>
-            <div class="col">
-              <label for="dem-cliente-tipo">Tipo</label>
-              <select id="dem-cliente-tipo"></select>
-            </div>
-          </div>
+            </div></div>
 
           <div class="row">
             <div class="col">
@@ -382,8 +372,7 @@
               <tr>
                 <th>Nome</th>
                 <th>Email</th>
-                <th>Tipo</th>
-                <th>Unidade</th>
+                                <th>Unidade</th>
                 <th>Status</th>
                 <th>Ações</th>
               </tr>
