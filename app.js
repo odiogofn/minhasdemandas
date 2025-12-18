@@ -549,25 +549,18 @@ function aplicarClienteNaTelaDemanda(c){
   const selCliente = byId("dem-cliente");
   const selTipo = byId("dem-cliente-tipo-entidade");
   const selEstado = byId("dem-cliente-estado");
-  const selContato = byId("dem-cliente-contato");
-  const tel = byId("dem-cliente-telefone");
   const demMun = byId("dem-municipio");
 
-  if(!c || !selCliente || !selTipo || !selEstado || !selContato || !tel) return;
+  if(!c || !selCliente || !selTipo || !selEstado) return;
 
   selCliente.value = c.cliente || "";
 
-  // Preenche selects com uma única opção coerente com o registro encontrado
   selTipo.innerHTML = `<option value="${c.tipo_entidade || ""}">${c.tipo_entidade || ""}</option>`;
   selTipo.value = c.tipo_entidade || "";
 
   selEstado.innerHTML = `<option value="${c.estado || ""}">${c.estado || ""}</option>`;
   selEstado.value = c.estado || "";
 
-  selContato.innerHTML = `<option value="${c.contato || ""}">${c.contato || ""}</option>`;
-  selContato.value = c.contato || "";
-
-  tel.value = c.telefone || "";
   if(demMun) demMun.value = c.municipio || "";
 }
 
@@ -661,29 +654,6 @@ function preencherEstadosPorClienteETipoEntidade(clienteNome, tipoEntidade){
   }
 }
 
-function preencherContatosPorClienteTipoEntidadeEstado(clienteNome, tipoEntidade, estado){
-  const selContato = byId("dem-cliente-contato");
-  if(!selContato) return;
-
-  selContato.innerHTML = `<option value="">Selecione...</option>`;
-  if(!clienteNome) return;
-
-  const filtrados = clientesCache.filter(c =>
-    c.cliente === clienteNome &&
-    (!tipoEntidade || c.tipo_entidade === tipoEntidade) &&
-    (!estado || c.estado === estado)
-  );
-
-  const contatos = Array.from(new Set(filtrados.map(c => c.contato).filter(Boolean)))
-    .sort((a,b)=>a.localeCompare(b,"pt-BR"));
-
-  for(const ct of contatos){
-    const opt = document.createElement("option");
-    opt.value = ct;
-    opt.textContent = ct;
-    selContato.appendChild(opt);
-  }
-}
 
 function acharClienteSelecionado(){
   const cliente = byId("dem-cliente")?.value || "";
@@ -928,9 +898,6 @@ async function salvarDemanda(e){
     cliente_tipo: cliSel.tipo_entidade, // compat
     cliente_municipio: cliSel.municipio,
     cliente_estado: cliSel.estado,
-    cliente_contato: cliSel.
-    cliente_telefone: cliSel.
-
     assunto,
     descricao,
     programador: programadorFinal,
