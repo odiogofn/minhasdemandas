@@ -469,9 +469,10 @@ async function salvarCliente(e){
 
   const { error } = await supabaseClient.from("clientes").insert([{
     cliente,
-    tipo_entidade: tipoEntidade,
-    municipio,
-    estado,
+tipo_entidade: tipoEntidade,
+tipo: tipoEntidade, // compatibilidade com schema antigo (NOT NULL)
+municipio,
+estado
     
   }]);
 
@@ -505,6 +506,7 @@ async function editarCliente(clienteId){
 const { error } = await supabaseClient.from("clientes").update({
     cliente: normalizarTextoUpper(novoCliente),
     tipo_entidade: normalizarTextoUpper(novoTipoEntidade),
+    tipo: normalizarTextoUpper(novoTipoEntidade), // compatibilidade com schema antigo (NOT NULL)
     municipio: normalizarTextoUpper(novoMunicipio),
     estado: normalizarEstadoSigla(novoEstado || ""),
     
