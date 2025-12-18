@@ -452,8 +452,11 @@ async function editarCliente(clienteId){
   const novoCliente = prompt("Cliente:", c.cliente || "");
   if(novoCliente === null) return;
 
-  const novoMunicipio = prompt("Município:", c.municipio || "");
-  if(novoMunicipio === null) return;
+  const novoTipoEntidade = prompt(
+    "Tipo Entidade (AUTARQUIA, CM, CONSORCIO, IPM):",
+    c.tipo_entidade || ""
+  );
+  if(novoTipoEntidade === null) return;
 
   const novoMunicipio = prompt("Município:", c.municipio || "");
   if(novoMunicipio === null) return;
@@ -469,6 +472,7 @@ async function editarCliente(clienteId){
 
   const { error } = await supabaseClient.from("clientes").update({
     cliente: novoCliente.trim().toUpperCase(),
+    tipo_entidade: novoTipoEntidade.trim().toUpperCase(),
     municipio: novoMunicipio.trim().toUpperCase(),
     estado: novoEstado.trim(),
     contato: novoContato.trim().toUpperCase(),
@@ -502,14 +506,13 @@ async function excluirCliente(clienteId){
 // =========================
 function montarSelectClientesParaDemanda(){
   const selCliente = byId("dem-cliente");
+  const selTipo = byId("dem-cliente-tipo-entidade");
   const selEstado = byId("dem-cliente-estado");
   const selContato = byId("dem-cliente-contato");
   const tel = byId("dem-cliente-telefone");
-  const municipioEl = byId("dem-municipio");
-  const localizarInput = byId("dem-localizar-cliente");
-  const datalist = byId("dl-clientes");
+  const demMun = byId("dem-municipio");
 
-  if(!selCliente || !selEstado || !selContato || !tel || !municipioEl) return;
+  if(!selCliente || !selTipo || !selEstado || !selContato || !tel) return;
 
   // cliente
   selCliente.innerHTML = "";
@@ -528,64 +531,102 @@ function montarSelectClientesParaDemanda(){
     selCliente.appendChild(opt);
   }
 
-  // datalist para "Localizar cliente"
-  if(datalist){
-    datalist.innerHTML = "";
-    for(const c of clientesCache){
-      const opt = document.createElement("option");
-      const cli = c.cliente || "";
-      const mun = c.municipio || "";
-      const tipo = c.tipo || "";
-      const est = c.estado || "";
-      const cont = c.contato || "";
-      // Incluímos o ID no fim para seleção segura via datalist
-      opt.value = `${cli} - ${mun} (${tipo}/${est}) • ${cont} [${c.id}]`;
-      datalist.appendChild(opt);
-    }
-  }
-
+  // inicia vazios
+  selTipo.innerHTML = `<option value="">Selecione...</option>`;
   selEstado.innerHTML = `<option value="">Selecione...</option>`;
   selContato.innerHTML = `<option value="">Selecione...</option>`;
   tel.value = "";
+  if(demMun) demMun.value = "";
 
   // listeners
   selCliente.onchange = () => {
-    preencherEstadosPorCliente(selCliente.value);
-    preencherContatosPorClienteEstado(selCliente.value, selEstado.value);
+    preencherTiposEntidadePorCliente(selCliente.value);
+    preencherEstadosPorClienteETipoEntidade(selCliente.value, selTipo.value);
+    preencherContatosPorClienteTipoEntidadeEstado(selCliente.value, selTipo.value, selEstado.value);
     tel.value = "";
-    municipioEl.value = "";
+    if(demMun) demMun.value = "";
   };
+
+  selTipo.onchange = () => {
+    preencherEstadosPorClienteETipoEntidade(selCliente.value, selTipo.value);
+    preencherContatosPorClienteTipoEntidadeEstado(selCliente.value, selTipo.value, selEstado.value);
+    tel.value = "";
+    if(demMun) demMun.value = "";
+  };
+
   selEstado.onchange = () => {
-    preencherContatosPorClienteEstado(selCliente.value, selEstado.value);
+    preencherContatosPorClienteTipoEntidadeEstado(selCliente.value, selTipo.value, selEstado.value);
     tel.value = "";
-    municipioEl.value = "";
+    if(demMun) demMun.value = "";
   };
+
   selContato.onchange = () => {
     const item = acharClienteSelecionado();
     tel.value = item?.telefone || "";
-    municipioEl.value = item?.municipio || "";
+    if(demMun) demMun.value = item?.municipio || "";
   };
+}
 
-  // Localizar cliente: ao selecionar um item do datalist, preenche os selects e campos 1 a 6
-  if(localizarInput){
-    localizarInput.onchange = () => {
-      const raw = (localizarInput.value || "").trim();
-      const m = raw.match(/\[([^\]]+)\]\s*$/);
-      const id = m ? m[1] : null;
-      const c = id ? clientesCache.find(x => x.id === id) : null;
-      if(!c) return;
+function preencherTiposEntidadePorCliente(clienteNome){
+  const selTipo = byId("dem-cliente-tipo-entidade");
+  if(!selTipo) return;
 
-      selCliente.value = c.cliente || "";
-      preencherTiposEntidadePorCliente(selCliente.value);
-      selTipo.value = c.tipo || "";
-        selEstado.value = c.estado || "";
-      preencherContatosPorClienteEstado(selCliente.value, selEstado.value);
-      selContato.value = c.contato || "";
-      tel.value = c.telefone || "";
-      municipioEl.value = c.municipio || "";
-    };
+  selTipo.innerHTML = `<option value="">Selecione...</option>`;
+  if(!clienteNome) return;
+
+  const tipos = Array.from(
+    new Set(clientesCache.filter(c => c.cliente === clienteNome).map(c => c.tipo_entidade).filter(Boolean))
+  ).sort((a,b)=>a.localeCompare(b,"pt-BR"));
+
+  for(const t of tipos){
+    const opt = document.createElement("option");
+    opt.value = t;
+    opt.textContent = t;
+    selTipo.appendChild(opt);
   }
+}
 
+function preencherEstadosPorClienteETipoEntidade(clienteNome, tipoEntidade){
+  const selEstado = byId("dem-cliente-estado");
+  if(!selEstado) return;
+
+  selEstado.innerHTML = `<option value="">Selecione...</option>`;
+  if(!clienteNome) return;
+
+  const filtrados = clientesCache.filter(c => c.cliente === clienteNome && (!tipoEntidade || c.tipo_entidade === tipoEntidade));
+  const estados = Array.from(new Set(filtrados.map(c => c.estado).filter(Boolean)))
+    .sort((a,b)=>a.localeCompare(b,"pt-BR"));
+
+  for(const e of estados){
+    const opt = document.createElement("option");
+    opt.value = e;
+    opt.textContent = e;
+    selEstado.appendChild(opt);
+  }
+}
+
+function preencherContatosPorClienteTipoEntidadeEstado(clienteNome, tipoEntidade, estado){
+  const selContato = byId("dem-cliente-contato");
+  if(!selContato) return;
+
+  selContato.innerHTML = `<option value="">Selecione...</option>`;
+  if(!clienteNome) return;
+
+  const filtrados = clientesCache.filter(c =>
+    c.cliente === clienteNome &&
+    (!tipoEntidade || c.tipo_entidade === tipoEntidade) &&
+    (!estado || c.estado === estado)
+  );
+
+  const contatos = Array.from(new Set(filtrados.map(c => c.contato).filter(Boolean)))
+    .sort((a,b)=>a.localeCompare(b,"pt-BR"));
+
+  for(const ct of contatos){
+    const opt = document.createElement("option");
+    opt.value = ct;
+    opt.textContent = ct;
+    selContato.appendChild(opt);
+  }
 }
 
 
