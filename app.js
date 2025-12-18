@@ -53,6 +53,27 @@ function normalizarTextoUpper(v) {
   return (v || "").toString().trim().replace(/\s+/g, " ").toUpperCase();
 }
 
+function normalizarEstadoSigla(v){
+  const raw = (v || "").toString().trim().toUpperCase();
+
+  // Mapeamentos solicitados (mantidos exatamente como você pediu)
+  const mapa = {
+    "CEARÁ": "CE",
+    "CEARA": "CE",
+    "RIO GRANDE DO NORTE": "RN",
+    "AMAPÁ": "AM",
+    "AMAPA": "AM",
+    "MARANHÃO": "MA",
+    "MARANHAO": "MA",
+    "PARÁ": "PA",
+    "PARA": "PA",
+  };
+
+  if(mapa[raw]) return mapa[raw];
+  if(/^[A-Z]{2}$/.test(raw)) return raw;
+  return raw;
+}
+
 function tipoPerfil(){
   return (currentUserProfile?.tipo || "").toString().trim().toUpperCase();
 }
@@ -374,7 +395,7 @@ async function logout(){
 
 // =========================
 // CLIENTES (CRUD) - 6 campos
-// cliente, tipo_entidade, municipio, estado, contato, telefone
+// cliente, tipo_entidade, municipio, estado,  telefone
 // =========================
 async function carregarClientes(){
   const { data, error } = await supabaseClient
@@ -405,8 +426,6 @@ function renderizarClientes(){
       <td>${c.tipo_entidade || ""}</td>
       <td>${c.municipio || ""}</td>
       <td>${c.estado || ""}</td>
-      <td>${c.contato || ""}</td>
-      <td>${c.telefone || ""}</td>
       <td>
         <div class="row-actions">
           <button class="btn-mini" data-a="editar">Editar</button>
@@ -439,12 +458,10 @@ async function salvarCliente(e){
   const cliente = normalizarTextoUpper(byId("cli-nome")?.value);
   const tipoEntidade = normalizarTextoUpper(byId("cli-tipo-entidade")?.value);
   const municipio = normalizarTextoUpper(byId("cli-municipio")?.value);
-  const estado = (byId("cli-estado")?.value || "").trim();
-  const contato = normalizarTextoUpper(byId("cli-contato")?.value);
-  const telefone = (byId("cli-telefone")?.value || "").trim();
+  const estado = normalizarEstadoSigla(byId("cli-estado")?.value || "");
 
-  if(!cliente || !tipoEntidade || !municipio || !estado || !contato || !telefone){
-    alert("Preencha Cliente, Tipo Entidade, Município, Estado, Contato e Telefone.");
+  if(!cliente || !tipoEntidade || !municipio || !estado){
+    alert("Preencha Cliente, Tipo Entidade, Município e Estado (sigla).");
     return;
   }
 
@@ -455,8 +472,7 @@ async function salvarCliente(e){
     tipo_entidade: tipoEntidade,
     municipio,
     estado,
-    contato,
-    telefone
+    
   }]);
 
   if(error){
@@ -478,28 +494,20 @@ async function editarCliente(clienteId){
   const novoCliente = prompt("Cliente:", c.cliente || "");
   if(novoCliente === null) return;
 
-  const novoTipoEntidade = prompt("Tipo Entidade (AUTARQUIA, CM, CONSORCIO, IPM):", c.tipo_entidade || "");
+  const novoTipoEntidade = prompt("Tipo Entidade (AUTARQUIA, CM, PM, CONSORCIO, IPM):", c.tipo_entidade || "");
   if(novoTipoEntidade === null) return;
 
   const novoMunicipio = prompt("Município:", c.municipio || "");
   if(novoMunicipio === null) return;
 
-  const novoEstado = prompt("Estado:", c.estado || "");
+  const novoEstado = prompt("Estado (sigla, ex: CE):", c.estado || "");
   if(novoEstado === null) return;
-
-  const novoContato = prompt("Contato:", c.contato || "");
-  if(novoContato === null) return;
-
-  const novoTelefone = prompt("Telefone:", c.telefone || "");
-  if(novoTelefone === null) return;
-
-  const { error } = await supabaseClient.from("clientes").update({
+const { error } = await supabaseClient.from("clientes").update({
     cliente: normalizarTextoUpper(novoCliente),
     tipo_entidade: normalizarTextoUpper(novoTipoEntidade),
     municipio: normalizarTextoUpper(novoMunicipio),
-    estado: (novoEstado || "").trim(),
-    contato: normalizarTextoUpper(novoContato),
-    telefone: (novoTelefone || "").trim()
+    estado: normalizarEstadoSigla(novoEstado || ""),
+    
   }).eq("id", clienteId);
 
   if(error){
@@ -571,19 +579,11 @@ function montarSelectClientesParaDemanda(){
   const selCliente = byId("dem-cliente");
   const selTipo = byId("dem-cliente-tipo-entidade");
   const selEstado = byId("dem-cliente-estado");
-  const selContato = byId("dem-cliente-contato");
-  const tel = byId("dem-cliente-telefone");
   const demMun = byId("dem-municipio");
 
-  if(!selCliente || !selTipo || !selEstado || !selContato || !tel) return;
+  if(!selCliente || !selTipo || !selEstado) return;
 
-  // cliente
-  selCliente.innerHTML = "";
-  const opt0 = document.createElement("option");
-  opt0.value = "";
-  opt0.textContent = "Selecione...";
-  selCliente.appendChild(opt0);
-
+  selCliente.innerHTML = `<option value="">Selecione...</option>`;
   const clientesUnicos = Array.from(new Set(clientesCache.map(c => c.cliente).filter(Boolean)))
     .sort((a,b)=>a.localeCompare(b,"pt-BR"));
 
@@ -594,38 +594,32 @@ function montarSelectClientesParaDemanda(){
     selCliente.appendChild(opt);
   }
 
-  // inicia vazios
   selTipo.innerHTML = `<option value="">Selecione...</option>`;
   selEstado.innerHTML = `<option value="">Selecione...</option>`;
-  selContato.innerHTML = `<option value="">Selecione...</option>`;
-  tel.value = "";
   if(demMun) demMun.value = "";
 
   selCliente.onchange = () => {
     preencherTiposEntidadePorCliente(selCliente.value);
     preencherEstadosPorClienteETipoEntidade(selCliente.value, selTipo.value);
-    preencherContatosPorClienteTipoEntidadeEstado(selCliente.value, selTipo.value, selEstado.value);
-    tel.value = "";
-    if(demMun) demMun.value = "";
+    if(demMun){
+      const first = clientesCache.find(c => c.cliente === selCliente.value);
+      demMun.value = first?.municipio || "";
+    }
   };
 
   selTipo.onchange = () => {
     preencherEstadosPorClienteETipoEntidade(selCliente.value, selTipo.value);
-    preencherContatosPorClienteTipoEntidadeEstado(selCliente.value, selTipo.value, selEstado.value);
-    tel.value = "";
-    if(demMun) demMun.value = "";
+    if(demMun){
+      const first = clientesCache.find(c => c.cliente === selCliente.value && c.tipo_entidade === selTipo.value);
+      demMun.value = first?.municipio || "";
+    }
   };
 
   selEstado.onchange = () => {
-    preencherContatosPorClienteTipoEntidadeEstado(selCliente.value, selTipo.value, selEstado.value);
-    tel.value = "";
-    if(demMun) demMun.value = "";
-  };
-
-  selContato.onchange = () => {
-    const item = acharClienteSelecionado();
-    tel.value = item?.telefone || "";
-    if(demMun) demMun.value = item?.municipio || "";
+    if(demMun){
+      const first = clientesCache.find(c => c.cliente === selCliente.value && c.tipo_entidade === selTipo.value && c.estado === selEstado.value);
+      demMun.value = first?.municipio || "";
+    }
   };
 }
 
@@ -695,15 +689,13 @@ function acharClienteSelecionado(){
   const cliente = byId("dem-cliente")?.value || "";
   const tipo = byId("dem-cliente-tipo-entidade")?.value || "";
   const estado = byId("dem-cliente-estado")?.value || "";
-  const contato = byId("dem-cliente-contato")?.value || "";
 
-  if(!cliente || !tipo || !estado || !contato) return null;
+  if(!cliente || !tipo || !estado) return null;
 
   return clientesCache.find(c =>
     c.cliente === cliente &&
     c.tipo_entidade === tipo &&
-    c.estado === estado &&
-    c.contato === contato
+    c.estado === estado
   ) || null;
 }
 
@@ -936,8 +928,8 @@ async function salvarDemanda(e){
     cliente_tipo: cliSel.tipo_entidade, // compat
     cliente_municipio: cliSel.municipio,
     cliente_estado: cliSel.estado,
-    cliente_contato: cliSel.contato,
-    cliente_telefone: cliSel.telefone,
+    cliente_contato: cliSel.
+    cliente_telefone: cliSel.
 
     assunto,
     descricao,
@@ -1190,8 +1182,8 @@ async function abrirModalDemanda(demandaId){
   setText("det-cliente", d.cliente_nome || "-");
   setText("det-cliente-tipo", d.cliente_tipo_entidade || d.cliente_tipo || "-");
   setText("det-cliente-estado", d.cliente_estado || "-");
-  setText("det-cliente-contato", d.cliente_contato || "-");
-  setText("det-cliente-telefone", d.cliente_telefone || "-");
+  setText("det-cliente-contato", "-");
+  setText("det-cliente-telefone", "-");
 
   setText("det-tipo-entidade", d.tipo_entidade || (d.cliente_tipo_entidade || d.cliente_tipo || "-"));
   setText("det-assunto", d.assunto || "-");
