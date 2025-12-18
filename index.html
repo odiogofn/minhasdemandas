@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <title>Sistema de Demandas</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles_v2.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.48.0/dist/umd/supabase.min.js" defer></script>
-  <script src="app.js" defer></script>
+  <script src="app_v2.js" defer></script>
 </head>
 <body>
   <!-- TELA DE LOGIN / CADASTRO -->
@@ -113,6 +113,13 @@
             </div>
             <div class="col">
               <label for="cli-tipo">Tipo</label>
+            </div>
+            <div class="col">
+              <label for="cli-municipio">Município</label>
+              <input type="text" id="cli-municipio" placeholder="ex: CRATEÚS" />
+            </div>
+            <div class="col">
+              <label for="cli-tipo">Tipo Entidade</label>
               <select id="cli-tipo">
                 <option value="">Selecione...</option>
                 <option value="CM">CM</option>
@@ -157,6 +164,7 @@
             <thead>
               <tr>
                 <th>Cliente</th>
+                <th>Município</th>
                 <th>Tipo</th>
                 <th>Estado</th>
                 <th>Contato</th>
@@ -178,6 +186,17 @@
 
         <form id="form-demanda" class="form-grid">
           <!-- Seleção em cascata do Cliente -->
+
+          <!-- Localizar cliente (pesquisa no cadastro de clientes) -->
+          <div class="row">
+            <div class="col">
+              <label for="dem-localizar-cliente">Localizar cliente</label>
+              <input type="text" id="dem-localizar-cliente" list="dl-clientes" placeholder="Digite cliente/município e selecione..." />
+              <datalist id="dl-clientes"></datalist>
+              <p class="hint">Selecione um item para preencher automaticamente Cliente/Tipo/Estado/Contato/Telefone/Município.</p>
+            </div>
+          </div>
+
           <div class="row">
             <div class="col">
               <label for="dem-cliente">Cliente (cadastro)</label>
@@ -211,11 +230,8 @@
           <div class="row">
             <div class="col">
               <label for="dem-municipio">Município</label>
-              <input type="text" id="dem-municipio" />
-            </div>
-            <div class="col">
-              <label for="dem-tipo-entidade">Tipo Entidade (CM, PM, CONSORCIO, IPM)</label>
-              <input type="text" id="dem-tipo-entidade" />
+              <input type="text" id="dem-municipio" readonly />
+              <p class="hint">Este município vem do cadastro de clientes.</p>
             </div>
           </div>
 
@@ -236,14 +252,13 @@
 
           <div class="row">
             <div class="col">
-              <label for="dem-programador">Programador</label>
-              <input type="text" id="dem-programador" placeholder="Digite ou clique em sugestões" />
-              <div id="sugs-programador" class="chips"></div>
+              <label for="dem-programador">Programador (somente usuários PROGRAMADOR)</label>
+              <select id="dem-programador"></select>
             </div>
             <div class="col">
-              <label for="dem-forma-atendimento">Forma de Atendimento (separe por vírgula)</label>
-              <input type="text" id="dem-forma-atendimento" placeholder="ANYDESK, EMAIL, TELEFONE..." />
-              <div id="sugs-forma-atendimento" class="chips"></div>
+              <label for="dem-forma-atendimento-input">Forma de Atendimento (digite e pressione vírgula ou Enter)</label>
+              <input type="text" id="dem-forma-atendimento-input" placeholder="ANYDESK, EMAIL, TELEFONE..." />
+              <div id="dem-forma-atendimento-chips" class="chips"></div>
             </div>
           </div>
 
@@ -260,20 +275,19 @@
             <div class="col">
               <label for="dem-status">Status</label>
               <select id="dem-status">
-                <option>ABERTA</option>
-                <option>EM ANÁLISE</option>
-                <option>NA PROGRAMAÇÃO</option>
-                <option>ENCAMINHADA</option>
-                <option>CONCLUÍDA</option>
+                <option value="ABERTURA">Abertura</option>
+                <option value="EM ANDAMENTO">Em Andamento</option>
+                <option value="ENCAMINHADO">Encaminhado</option>
+                <option value="CONCLUÍDO">Concluído</option>
               </select>
             </div>
             <div class="col">
               <label for="dem-prioridade">Prioridade</label>
               <select id="dem-prioridade">
-                <option>BAIXA</option>
-                <option selected>MÉDIA</option>
-                <option>ALTA</option>
-                <option>URGENTE</option>
+                <option value="BAIXA">Baixa</option>
+                <option value="MÉDIA" selected>Média</option>
+                <option value="ALTA">Alta</option>
+                <option value="URGENTE">Urgente</option>
               </select>
             </div>
           </div>
@@ -286,6 +300,14 @@
             <div class="col">
               <label for="dem-link-email">Link Email (código)</label>
               <input type="text" id="dem-link-email" />
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col">
+              <label for="dem-encaminhar-para">Encaminhar (opcional)</label>
+              <select id="dem-encaminhar-para"></select>
+              <p class="hint">Se o destino for PROGRAMADOR, o campo Programador será preenchido automaticamente.</p>
             </div>
           </div>
 
@@ -313,19 +335,17 @@
 
             <select id="filtro-status">
               <option value="TODOS">Todos Status</option>
-              <option value="ABERTA">Aberta</option>
-              <option value="EM ANÁLISE">Em análise</option>
-              <option value="NA PROGRAMAÇÃO">Na programação</option>
-              <option value="ENCAMINHADA">Encaminhada</option>
-              <option value="CONCLUÍDA">Concluída</option>
+              <option value="ABERTURA">Abertura</option>
+              <option value="EM ANDAMENTO">Em Andamento</option>
+              <option value="ENCAMINHADO">Encaminhado</option>
+              <option value="CONCLUÍDO">Concluído</option>
             </select>
 
             <select id="filtro-atendente"></select>
             <select id="filtro-programador"></select>
             <select id="filtro-municipio"></select>
             <select id="filtro-estado"></select>
-            <select id="filtro-tipo-entidade"></select>
-          </div>
+                      </div>
         </div>
 
         <div class="table-wrapper">
@@ -467,6 +487,12 @@
               Se o destino for PROGRAMADOR, muda o campo Programador.
               Se for outro perfil, muda apenas “Encaminhar para”.
             </p>
+          </div>
+
+          <div class="acao-card" id="card-devolver">
+            <h4>Devolver</h4>
+            <p class="hint">Volta a demanda para o usuário que cadastrou inicialmente (solicitante).</p>
+            <button id="btn-devolver" class="btn secondary" type="button">Devolver ao solicitante</button>
           </div>
 
           <div class="acao-card" id="card-editar">

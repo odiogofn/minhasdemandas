@@ -13,6 +13,7 @@ let usuariosCache = [];
 let clientesCache = [];
 
 let tagsAtuais = [];
+let formaAtendimentoAtuais = [];
 
 let filtrosAtuais = {
   buscaTexto: "",
@@ -23,7 +24,6 @@ let filtrosAtuais = {
   programador: "TODOS",
   municipio: "TODOS",
   estado: "TODOS",
-  tipoEntidade: "TODOS",
 };
 
 // =========================
@@ -102,7 +102,8 @@ function podeEncaminharDemanda(d){
 function podeEditarOuExcluirAtualizacao(a){
   if(!currentUserProfile || !a) return false;
   if(ehGestor()) return true;
-  return a.usuario_id === currentUserProfile.id;
+  if(ehSuporte() && a.usuario_id === currentUserProfile.id) return true;
+  return false;
 }
 
 // =========================
@@ -191,7 +192,7 @@ function ajustarInterfacePorPerfil(){
 
 
   if(ehProgramador()){
-    if(ajudaEl) ajudaEl.textContent = "Perfil Programador: você vê as suas demandas (ou consulta todas no toggle) e registra andamentos.";
+    if(ajudaEl) ajudaEl.textContent = "Perfil Programador: você visualiza as demandas (ou consulta todas no toggle).";
   } else if(ehSuporte()){
     if(ajudaEl) ajudaEl.textContent = "Perfil Suporte: você cadastra, edita e exclui as demandas que criar e pode consultar todas no toggle.";
   } else if(ehGestor()){
@@ -383,6 +384,7 @@ function renderizarClientes(){
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${c.cliente || ""}</td>
+      <td>${c.municipio || ""}</td>
       <td>${c.tipo || ""}</td>
       <td>${c.estado || ""}</td>
       <td>${c.contato || ""}</td>
@@ -417,12 +419,13 @@ async function salvarCliente(e){
   }
 
   const cliente = byId("cli-nome").value.trim().toUpperCase();
+  const municipio = byId("cli-municipio").value.trim().toUpperCase();
   const estado = byId("cli-estado").value;
   const contato = byId("cli-contato").value.trim().toUpperCase();
   const telefone = byId("cli-telefone").value.trim();
   const tipo = byId("cli-tipo").value;
 
-  if(!cliente || !estado || !contato || !telefone || !tipo){
+  if(!cliente || !municipio || !estado || !contato || !telefone || !tipo){
     alert("Preencha Cliente, Tipo, Estado, Contato e Telefone.");
     return;
   }
@@ -430,7 +433,7 @@ async function salvarCliente(e){
   setStatusClientes("Salvando cliente...");
 
   const { error } = await supabaseClient.from("clientes").insert([{
-    cliente, estado, contato, telefone, tipo
+    cliente, municipio, estado, contato, telefone, tipo
   }]);
 
   if(error){
@@ -452,6 +455,9 @@ async function editarCliente(clienteId){
   const novoCliente = prompt("Cliente:", c.cliente || "");
   if(novoCliente === null) return;
 
+  const novoMunicipio = prompt("Município:", c.municipio || "");
+  if(novoMunicipio === null) return;
+
   const novoTipo = prompt("Tipo (CM, PM, AUTARQUIA, IPM, CONSORCIO):", c.tipo || "");
   if(novoTipo === null) return;
 
@@ -466,6 +472,7 @@ async function editarCliente(clienteId){
 
   const { error } = await supabaseClient.from("clientes").update({
     cliente: novoCliente.trim().toUpperCase(),
+    municipio: novoMunicipio.trim().toUpperCase(),
     tipo: novoTipo.trim().toUpperCase(),
     estado: novoEstado.trim(),
     contato: novoContato.trim().toUpperCase(),
@@ -503,8 +510,11 @@ function montarSelectClientesParaDemanda(){
   const selEstado = byId("dem-cliente-estado");
   const selContato = byId("dem-cliente-contato");
   const tel = byId("dem-cliente-telefone");
+  const municipioEl = byId("dem-municipio");
+  const localizarInput = byId("dem-localizar-cliente");
+  const datalist = byId("dl-clientes");
 
-  if(!selCliente || !selTipo || !selEstado || !selContato || !tel) return;
+  if(!selCliente || !selTipo || !selEstado || !selContato || !tel || !municipioEl) return;
 
   // cliente
   selCliente.innerHTML = "";
@@ -523,6 +533,22 @@ function montarSelectClientesParaDemanda(){
     selCliente.appendChild(opt);
   }
 
+  // datalist para "Localizar cliente"
+  if(datalist){
+    datalist.innerHTML = "";
+    for(const c of clientesCache){
+      const opt = document.createElement("option");
+      const cli = c.cliente || "";
+      const mun = c.municipio || "";
+      const tipo = c.tipo || "";
+      const est = c.estado || "";
+      const cont = c.contato || "";
+      // Incluímos o ID no fim para seleção segura via datalist
+      opt.value = `${cli} - ${mun} (${tipo}/${est}) • ${cont} [${c.id}]`;
+      datalist.appendChild(opt);
+    }
+  }
+
   // tipo/estado/contato vazios inicialmente
   selTipo.innerHTML = `<option value="">Selecione...</option>`;
   selEstado.innerHTML = `<option value="">Selecione...</option>`;
@@ -535,20 +561,46 @@ function montarSelectClientesParaDemanda(){
     preencherEstadosPorClienteETipo(selCliente.value, selTipo.value);
     preencherContatosPorClienteTipoEstado(selCliente.value, selTipo.value, selEstado.value);
     tel.value = "";
+    municipioEl.value = "";
   };
   selTipo.onchange = () => {
     preencherEstadosPorClienteETipo(selCliente.value, selTipo.value);
     preencherContatosPorClienteTipoEstado(selCliente.value, selTipo.value, selEstado.value);
     tel.value = "";
+    municipioEl.value = "";
   };
   selEstado.onchange = () => {
     preencherContatosPorClienteTipoEstado(selCliente.value, selTipo.value, selEstado.value);
     tel.value = "";
+    municipioEl.value = "";
   };
   selContato.onchange = () => {
     const item = acharClienteSelecionado();
     tel.value = item?.telefone || "";
+    municipioEl.value = item?.municipio || "";
   };
+
+  // Localizar cliente: ao selecionar um item do datalist, preenche os selects e campos 1 a 6
+  if(localizarInput){
+    localizarInput.onchange = () => {
+      const raw = (localizarInput.value || "").trim();
+      const m = raw.match(/\[([^\]]+)\]\s*$/);
+      const id = m ? m[1] : null;
+      const c = id ? clientesCache.find(x => x.id === id) : null;
+      if(!c) return;
+
+      selCliente.value = c.cliente || "";
+      preencherTiposPorCliente(selCliente.value);
+      selTipo.value = c.tipo || "";
+      preencherEstadosPorClienteETipo(selCliente.value, selTipo.value);
+      selEstado.value = c.estado || "";
+      preencherContatosPorClienteTipoEstado(selCliente.value, selTipo.value, selEstado.value);
+      selContato.value = c.contato || "";
+      tel.value = c.telefone || "";
+      municipioEl.value = c.municipio || "";
+    };
+  }
+
 }
 
 function preencherTiposPorCliente(clienteNome){
@@ -670,6 +722,42 @@ function adicionarTagsDoInput(){
   input.value = "";
 }
 
+
+function renderizarFormaAtendimento(){
+  const cont = byId("dem-forma-atendimento-chips");
+  if(!cont) return;
+  cont.innerHTML = "";
+  for(const t of formaAtendimentoAtuais){
+    const chip = document.createElement("span");
+    chip.className = "chip-tag";
+    chip.innerHTML = `<span>${t}</span><button type="button" title="Remover">×</button>`;
+    chip.querySelector("button").addEventListener("click", () => {
+      formaAtendimentoAtuais = formaAtendimentoAtuais.filter(x => x !== t);
+      renderizarFormaAtendimento();
+    });
+    cont.appendChild(chip);
+  }
+}
+
+function adicionarFormaAtendimentoDoInput(){
+  const input = byId("dem-forma-atendimento-input");
+  if(!input) return;
+
+  const bruto = input.value;
+  const partes = bruto.split(",").map(normalizarTag).filter(Boolean);
+
+  let mudou = false;
+  for(const p of partes){
+    if(!formaAtendimentoAtuais.includes(p)){
+      formaAtendimentoAtuais.push(p);
+      mudou = true;
+    }
+  }
+  if(mudou) renderizarFormaAtendimento();
+
+  input.value = "";
+}
+
 // =========================
 // USUÁRIOS (LISTA PARA ENCAMINHAR / FILTROS / PROGRAMADOR)
 // =========================
@@ -692,6 +780,43 @@ async function carregarUsuariosParaEncaminhar(){
 
   usuariosCache = lista;
 }
+
+function popularSelectProgramadoresCadastro(){
+  const sel = byId("dem-programador");
+  if(!sel) return;
+  sel.innerHTML = `<option value="">Selecione...</option>`;
+  const progs = usuariosCache.filter(u => (u.tipo || "").toUpperCase() === "PROGRAMADOR")
+    .sort((a,b)=>(a.nome||"").localeCompare((b.nome||""),"pt-BR"));
+  for(const u of progs){
+    const opt = document.createElement("option");
+    opt.value = u.id;
+    opt.textContent = u.nome;
+    sel.appendChild(opt);
+  }
+}
+
+function popularSelectEncaminharCadastro(){
+  const sel = byId("dem-encaminhar-para");
+  if(!sel) return;
+  sel.innerHTML = `<option value="">(Não encaminhar agora)</option>`;
+  const lista = [...usuariosCache].sort((a,b)=>(a.nome||"").localeCompare((b.nome||""),"pt-BR"));
+  for(const u of lista){
+    const opt = document.createElement("option");
+    opt.value = u.id;
+    opt.textContent = `${u.nome} (${u.tipo})`;
+    sel.appendChild(opt);
+  }
+
+  // Se selecionar um PROGRAMADOR aqui, espelha no campo Programador
+  sel.onchange = () => {
+    const destino = usuariosCache.find(x => x.id === sel.value);
+    if(destino?.tipo === "PROGRAMADOR"){
+      const selProg = byId("dem-programador");
+      if(selProg) selProg.value = destino.id;
+    }
+  };
+}
+
 
 // =========================
 // DEMANDAS (CRUD)
@@ -729,16 +854,17 @@ async function salvarDemanda(e){
     return;
   }
 
-  const municipio = byId("dem-municipio").value.trim().toUpperCase();
-  const tipoEntidade = byId("dem-tipo-entidade").value.trim().toUpperCase();
-  const assunto = byId("dem-assunto").value.trim().toUpperCase();
+  const municipio = byId("dem-municipio").value.trim().toUpperCase();  const assunto = byId("dem-assunto").value.trim().toUpperCase();
   const descricao = byId("dem-descricao").value.trim();
-  const programador = byId("dem-programador").value.trim();
-  const formaAtendimento = byId("dem-forma-atendimento").value.trim();
+  const programadorId = byId("dem-programador").value;
+  const programadorObj = usuariosCache.find(u => u.id === programadorId);
+  const programador = programadorObj?.nome || "";
+  const formaAtendimento = (formaAtendimentoAtuais.length ? formaAtendimentoAtuais.join(", ") : "");
   const prioridade = byId("dem-prioridade").value;
   const statusDemanda = byId("dem-status").value;
   const linkTrello = byId("dem-link-trello").value.trim();
   const linkEmail = byId("dem-link-email").value.trim();
+  const encaminharParaId = byId("dem-encaminhar-para")?.value || "";
 
   if(!municipio || !assunto || !descricao){
     alert("Preencha Município, Assunto e Descrição.");
@@ -748,7 +874,11 @@ async function salvarDemanda(e){
   // cliente selecionado
   const cliSel = acharClienteSelecionado();
   if(!cliSel){
-    alert("Selecione Cliente, Tipo, Estado e Contato (cadastro).");
+    alert("Selecione um cliente válido (cadastro).");
+    return;
+  }
+  if(!cliSel.municipio){
+    alert("Este cliente não possui Município cadastrado. Ajuste no Cadastro de Clientes.");
     return;
   }
 
@@ -761,11 +891,11 @@ async function salvarDemanda(e){
   const payload = {
     user_id: currentUserProfile.id,
     codigo,
-    municipio,
-    tipo_entidade: tipoEntidade || null,
+    municipio: cliSel.municipio,
 
     cliente_id: cliSel.id,
     cliente_nome: cliSel.cliente,
+    cliente_municipio: cliSel.municipio,
     cliente_tipo: cliSel.tipo,
     cliente_estado: cliSel.estado,
     cliente_contato: cliSel.contato,
@@ -774,16 +904,31 @@ async function salvarDemanda(e){
     assunto,
     descricao,
     programador: programador || null,
-    encaminhar_para: programador || null,
+    encaminhar_para: null,
     forma_atendimento: formaAtendimento || null,
     prioridade: prioridade || "MÉDIA",
-    status: statusDemanda || "ABERTA",
+    status: statusDemanda || "ABERTURA",
     atendente: suporteNome,
     link_trello: linkTrello || null,
     link_email: linkEmail || null,
     data_hora_local: agoraLocal,
     tags: tagsAtuais.length ? tagsAtuais : []
   };
+
+
+  // Encaminhar (campo 16)
+  if(encaminharParaId){
+    const destino = usuariosCache.find(u => u.id === encaminharParaId);
+    if(destino){
+      payload.encaminhar_para = destino.nome || null;
+      // se o destino for PROGRAMADOR, o campo programador deve ficar igual
+      if(destino.tipo === "PROGRAMADOR"){
+        payload.programador = destino.nome || payload.programador || null;
+      }
+      // se está sendo encaminhada na criação, força status ENCAMINHADO
+      payload.status = "ENCAMINHADO";
+    }
+  }
 
   const { error } = await supabaseClient.from("demandas").insert([payload]);
 
@@ -796,7 +941,9 @@ async function salvarDemanda(e){
 
   byId("form-demanda").reset();
   tagsAtuais = [];
+  formaAtendimentoAtuais = [];
   renderizarTags();
+  renderizarFormaAtendimento();
 
   setStatusBar("Demanda salva com sucesso!");
   await carregarDemandas();
@@ -1055,6 +1202,13 @@ async function abrirModalDemanda(demandaId){
     hide("card-encaminhar");
   }
 
+  // Ação: devolver ao solicitante
+  if((ehGestor() || ehSuporte()) && (!filtrosAtuais.consultarTodas || ehGestor())){
+    show("card-devolver");
+  } else {
+    hide("card-devolver");
+  }
+
   // Editar/Excluir
   if(podeEditarOuExcluirDemanda(d) && (!filtrosAtuais.consultarTodas || ehGestor())){
     show("card-editar");
@@ -1065,6 +1219,7 @@ async function abrirModalDemanda(demandaId){
   }
 
   byId("btn-encaminhar").onclick = async () => encaminharDemanda(d.id);
+  byId("btn-devolver").onclick = async () => { await devolverDemanda(d.id); await abrirModalDemanda(d.id); };
   byId("btn-editar-demanda").onclick = async () => {
     await editarDemanda(d.id);
     await abrirModalDemanda(d.id);
@@ -1127,7 +1282,7 @@ async function encaminharDemanda(demandaId){
   // ✅ regra: só muda programador se destino for PROGRAMADOR
   const payload = {
     encaminhar_para: destino.nome,
-    status: "ENCAMINHADA"
+    status: "ENCAMINHADO"
   };
   if((destino.tipo || "").toUpperCase() === "PROGRAMADOR"){
     payload.programador = destino.nome;
@@ -1142,6 +1297,44 @@ async function encaminharDemanda(demandaId){
 
   await carregarDemandas();
   await abrirModalDemanda(demandaId);
+}
+
+
+async function devolverDemanda(demandaId){
+  const d = demandasCache.find(x => x.id === demandaId);
+  if(!d) return;
+
+  if(filtrosAtuais.consultarTodas && !ehGestor()){
+    alert("Modo 'Consultar todas' é somente leitura.");
+    return;
+  }
+
+  if(!(ehGestor() || ehSuporte())){
+    alert("Você não tem permissão para devolver esta demanda.");
+    return;
+  }
+
+  // devolve para quem cadastrou inicialmente
+  const solicitante = usuariosCache.find(u => u.id === d.user_id);
+  const nomeSolicitante = solicitante?.nome || d.atendente || null;
+
+  const { error } = await supabaseClient
+    .from("demandas")
+    .update({
+      encaminhar_para: nomeSolicitante,
+      status: "ENCAMINHADO"
+      // NÃO altera 'programador' (mantém o último programador que atuou)
+    })
+    .eq("id", demandaId);
+
+  if(error){
+    console.error("Erro ao devolver demanda:", error);
+    alert("Erro ao devolver demanda: " + error.message);
+    return;
+  }
+
+  setStatusBar("Demanda devolvida ao solicitante.");
+  await carregarDemandas();
 }
 
 // =========================
@@ -1598,6 +1791,16 @@ function registrarListeners(){
       adicionarTagsDoInput();
     }
   });
+
+
+  const formaInput = byId("dem-forma-atendimento-input");
+  formaInput?.addEventListener("keydown", (e) => {
+    if(e.key === "Enter" || e.key === ","){
+      e.preventDefault();
+      adicionarFormaAtendimentoDoInput();
+    }
+  });
+
 
   // botão gráficos
   byId("btn-graficos")?.addEventListener("click", () => {
