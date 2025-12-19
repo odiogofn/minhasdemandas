@@ -6,10 +6,11 @@
 // =========================
 // CONFIGURAÇÃO SUPABASE
 // =========================
-const SUPABASE_URL = "https://cmxepgkkdvyfraesvqly.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNteGVwZ2trZHZ5ZnJhZXN2cWx5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ3ODA2NDksImV4cCI6MjA4MDM1NjY0OX0.rQMjA0pyJ2gWvPlyuQr0DccdkUs24NQTdsQvgiN2QXY";
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
+const SUPABASE_URL = window.SUPABASE_URL || localStorage.getItem("SUPABASE_URL") || "";
+const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || localStorage.getItem("SUPABASE_ANON_KEY") || "";
+const supabaseClient = (SUPABASE_URL && SUPABASE_ANON_KEY)
+  ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
 // =========================
 // ESTADO GLOBAL
 // =========================
@@ -42,6 +43,59 @@ function byId(id){ return document.getElementById(id); }
 function setText(id, text){ const el = byId(id); if(el) el.textContent = text; }
 function show(id){ const el = byId(id); if(el) el.classList.remove("hidden"); }
 function hide(id){ const el = byId(id); if(el) el.classList.add("hidden"); }
+function supabaseConfigValida(){
+  const url = (localStorage.getItem("SUPABASE_URL") || "").trim();
+  const key = (localStorage.getItem("SUPABASE_ANON_KEY") || "").trim();
+
+  // Heurística: URL deve conter supabase.co e key deve ser grande (normalmente > 100 chars)
+  if(!url || !/supabase\.co/i.test(url)) return false;
+  if(!key || key.length < 80) return false;
+  if(key.includes("....")) return false;
+  return true;
+}
+
+function mostrarConfigSupabaseSePreciso(){
+  const box = byId("supabase-config");
+  if(!box) return;
+
+  // Preenche inputs com o que já estiver salvo
+  const inpUrl = byId("cfg-supabase-url");
+  const inpKey = byId("cfg-supabase-key");
+  if(inpUrl) inpUrl.value = localStorage.getItem("SUPABASE_URL") || "";
+  if(inpKey) inpKey.value = localStorage.getItem("SUPABASE_ANON_KEY") || "";
+
+  if(!supabaseConfigValida()){
+    box.classList.remove("hidden");
+    setText("auth-status", "Configure o Supabase para conseguir logar e pesquisar clientes.");
+  } else {
+    box.classList.add("hidden");
+  }
+}
+
+function instalarConfigSupabaseUI(){
+  const btn = byId("btn-salvar-config");
+  if(!btn) return;
+
+  btn.addEventListener("click", () => {
+    const url = (byId("cfg-supabase-url")?.value || "").trim();
+    const key = (byId("cfg-supabase-key")?.value || "").trim();
+
+    if(!url || !/supabase\.co/i.test(url)){
+      alert("Cole uma SUPABASE_URL válida (ex: https://xxxx.supabase.co).");
+      return;
+    }
+    if(!key || key.length < 80){
+      alert("Cole a SUPABASE_ANON_KEY completa.");
+      return;
+    }
+
+    localStorage.setItem("SUPABASE_URL", url);
+    localStorage.setItem("SUPABASE_ANON_KEY", key);
+
+    alert("Configuração salva! Recarregue a página (Ctrl+F5).");
+  });
+}
+
 
 function formatarDataHoraBr(dateStr){
   if(!dateStr) return "";
@@ -241,11 +295,14 @@ function mostrarTelaAuth(){
   show("auth-container");
   hide("app-container");
   setText("auth-status", "Informe seus dados para entrar ou se cadastrar.");
+  mostrarConfigSupabaseSePreciso();
 }
 
 function mostrarApp(){
   hide("auth-container");
   show("app-container");
+  // instala busca em tempo real no cadastro de demanda
+  instalarBuscaClientesUI();
 
   setText("user-label", `${currentUserProfile.nome} (${tipoPerfil()} · ${currentUserProfile.unidade || "-"})`);
   ajustarInterfacePorPerfil();
