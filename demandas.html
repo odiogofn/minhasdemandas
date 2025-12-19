@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Demandas - Minhas Demandas</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">Minhas Demandas</div>
+
+      <nav class="nav">
+        <a href="./demandas.html" data-page="demandas">Demandas</a>
+        <a href="./clientes.html" data-page="clientes">Clientes</a>
+        <a href="./usuarios.html" data-page="usuarios">Usuários</a>
+      </nav>
+
+      <div class="row">
+        <div id="whoami" class="pill">Verificando sessão...</div>
+        <button id="btn-login-nav" class="btn hidden" type="button">Login</button>
+        <button id="btn-logout" class="btn danger hidden" type="button">Sair</button>
+      </div>
+    </div>
+
+    <section class="card">
+  <h2>Cadastro de Demanda</h2>
+
+  <div class="card" style="margin-top:10px">
+    <h2 style="font-size:16px;margin-bottom:8px">Cliente (busca em tempo real)</h2>
+    <label for="dem-cliente-busca">Pesquisar por Cliente / Município / Tipo Entidade</label>
+    <input id="dem-cliente-busca" type="text" placeholder="Digite para buscar..." autocomplete="off" />
+    <div id="dem-cliente-resultados" class="typeahead hidden"></div>
+
+    <div class="two" style="margin-top:10px">
+      <div>
+        <label>Cliente selecionado</label>
+        <input id="dem-cliente-nome" type="text" readonly />
+      </div>
+      <div>
+        <label>Tipo Entidade</label>
+        <input id="dem-cliente-tipo-entidade" type="text" readonly />
+      </div>
+    </div>
+    <div class="two" style="margin-top:10px">
+      <div>
+        <label>Município</label>
+        <input id="dem-municipio" type="text" readonly />
+      </div>
+      <div>
+        <label>Estado</label>
+        <input id="dem-cliente-estado" type="text" readonly />
+      </div>
+    </div>
+
+    <input id="dem-cliente-id" type="hidden" />
+  </div>
+
+  <div class="two" style="margin-top:12px">
+    <div>
+      <label for="dem-assunto">Assunto</label>
+      <input id="dem-assunto" type="text" />
+    </div>
+    <div>
+      <label for="dem-prioridade">Prioridade</label>
+      <select id="dem-prioridade">
+        <option value="Baixa">Baixa</option>
+        <option value="Média">Média</option>
+        <option value="Alta">Alta</option>
+        <option value="Urgente">Urgente</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="two" style="margin-top:12px">
+    <div>
+      <label for="dem-status">Status</label>
+      <select id="dem-status">
+        <option value="Abertura">Abertura</option>
+        <option value="Em Andamento">Em Andamento</option>
+        <option value="Encaminhado">Encaminhado</option>
+        <option value="Concluído">Concluído</option>
+      </select>
+    </div>
+    <div></div>
+  </div>
+
+  <div style="margin-top:12px">
+    <label for="dem-descricao">Descrição</label>
+    <textarea id="dem-descricao"></textarea>
+  </div>
+
+  <div class="row" style="margin-top:10px">
+    <button id="btn-salvar-demanda" class="btn primary" type="button">Salvar Demanda</button>
+  </div>
+  <div id="dem-status-msg" class="status"></div>
+</section>
+  </div>
+
+  <script type="module" src="./common.js" data-page="demandas"></script>
+</body>
+</html>

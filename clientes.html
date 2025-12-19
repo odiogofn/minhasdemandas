@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Clientes - Minhas Demandas</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">Minhas Demandas</div>
+
+      <nav class="nav">
+        <a href="./demandas.html" data-page="demandas">Demandas</a>
+        <a href="./clientes.html" data-page="clientes">Clientes</a>
+        <a href="./usuarios.html" data-page="usuarios">Usuários</a>
+      </nav>
+
+      <div class="row">
+        <div id="whoami" class="pill">Verificando sessão...</div>
+        <button id="btn-login-nav" class="btn hidden" type="button">Login</button>
+        <button id="btn-logout" class="btn danger hidden" type="button">Sair</button>
+      </div>
+    </div>
+
+    <section class="card">
+  <h2>Cadastro de Cliente</h2>
+  <div class="two" style="margin-top:10px">
+    <div>
+      <label for="cli-nome">Cliente</label>
+      <input id="cli-nome" type="text" placeholder="Ex: IPM Milagres" />
+    </div>
+    <div>
+      <label for="cli-tipo-entidade">Tipo Entidade</label>
+      <select id="cli-tipo-entidade">
+        <option value="">Selecione...</option>
+        <option value="AUTARQUIA">AUTARQUIA</option>
+        <option value="CM">CM</option>
+        <option value="PM">PM</option>
+        <option value="CONSORCIO">CONSORCIO</option>
+        <option value="IPM">IPM</option>
+      </select>
+    </div>
+  </div>
+  <div class="two" style="margin-top:10px">
+    <div>
+      <label for="cli-municipio">Município</label>
+      <input id="cli-municipio" type="text" placeholder="Ex: Milagres" />
+    </div>
+    <div>
+      <label for="cli-estado">Estado (sigla)</label>
+      <input id="cli-estado" type="text" placeholder="Ex: CE" />
+    </div>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <button id="btn-salvar-cliente" class="btn primary" type="button">Salvar Cliente</button>
+  </div>
+  <div id="cli-status-msg" class="status"></div>
+</section>
+  </div>
+
+  <script type="module" src="./common.js" data-page="clientes"></script>
+</body>
+</html>

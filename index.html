@@ -3,96 +3,60 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Minhas Demandas</title>
-
-  <!-- TRAVA TOTAL: APP NUNCA APARECE SEM LOGIN -->
-  <style>
-    #app-container { display: none !important; }
-    #auth-container { display: block; }
-
-    body {
-      margin: 0;
-      font-family: system-ui, Arial;
-      background: #0b0f17;
-      color: #e7eefc;
-    }
-    .wrap { max-width: 1100px; margin: auto; padding: 20px; }
-    .card {
-      background: #121a27;
-      border-radius: 14px;
-      padding: 16px;
-      margin-bottom: 16px;
-    }
-    .hidden { display: none !important; }
-    input, select, textarea, button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 6px;
-      border-radius: 8px;
-      border: 1px solid #24324a;
-      background: #0c1220;
-      color: #fff;
-    }
-    button { cursor: pointer; }
-    .row { display: flex; gap: 10px; margin-top: 10px; }
-    .status { margin-top: 10px; color: #9aa7bd; }
-  </style>
+  <title>Login - Minhas Demandas</title>
+  <link rel="stylesheet" href="./styles.css" />
 </head>
-
 <body>
-<div class="wrap">
-
-  <!-- LOGIN -->
-  <section id="auth-container" class="card">
-    <h2>Login</h2>
-
-    <label>Email</label>
-    <input id="auth-email" type="email" />
-
-    <label>Senha</label>
-    <input id="auth-pass" type="password" />
-
-    <div class="row">
-      <button id="btn-login">Entrar</button>
-      <button id="btn-signup">Criar Conta</button>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">Minhas Demandas</div>
+      <div class="row">
+        <div id="whoami" class="pill">Verificando sessão...</div>
+        <button id="btn-login-nav" class="btn hidden" type="button">Login</button>
+        <button id="btn-logout" class="btn danger hidden" type="button">Sair</button>
+      </div>
     </div>
 
-    <div id="auth-status" class="status"></div>
-  </section>
+    <section class="card">
+      <h2>Entrar</h2>
+      <div class="two">
+        <div>
+          <label for="auth-email">Email</label>
+          <input id="auth-email" type="email" placeholder="seuemail@exemplo.com" autocomplete="email" />
+        </div>
+        <div>
+          <label for="auth-pass">Senha</label>
+          <input id="auth-pass" type="password" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="btn-login" class="btn primary" type="button">Login</button>
+      </div>
+      <div id="auth-status" class="status"></div>
+    </section>
 
-  <!-- APP -->
-  <section id="app-container" class="card">
-    <h2>Cadastro de Demanda</h2>
+    <section class="card" style="margin-top:12px">
+      <h2>Criar conta</h2>
+      <div class="two">
+        <div>
+          <label for="signup-email">Email</label>
+          <input id="signup-email" type="email" placeholder="seuemail@exemplo.com" autocomplete="email" />
+        </div>
+        <div>
+          <label for="signup-pass">Senha</label>
+          <input id="signup-pass" type="password" placeholder="mínimo 6 caracteres" autocomplete="new-password" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="btn-signup" class="btn primary" type="button">Criar conta</button>
+      </div>
+      <div id="signup-status" class="status"></div>
+      <p class="status" style="margin-top:10px">
+        Vercel/Vite: configure <b>VITE_SUPABASE_URL</b> e <b>VITE_SUPABASE_ANON_KEY</b>.
+      </p>
+    </section>
+  </div>
 
-    <label>Pesquisar Cliente</label>
-    <input id="dem-cliente-busca" placeholder="Digite cliente, município ou tipo" />
-    <div id="dem-cliente-resultados"></div>
-
-    <label>Cliente</label>
-    <input id="dem-cliente-nome" readonly />
-
-    <label>Tipo Entidade</label>
-    <input id="dem-cliente-tipo-entidade" readonly />
-
-    <label>Município</label>
-    <input id="dem-municipio" readonly />
-
-    <label>Estado</label>
-    <input id="dem-cliente-estado" readonly />
-
-    <label>Assunto</label>
-    <input id="dem-assunto" />
-
-    <label>Descrição</label>
-    <textarea id="dem-descricao"></textarea>
-
-    <button id="btn-salvar-demanda">Salvar Demanda</button>
-
-    <div id="dem-status-msg" class="status"></div>
-  </section>
-
-</div>
-
-<script type="module" src="./app.js"></script>
+  <script type="module" src="./common.js" data-page="index"></script>
 </body>
 </html>
