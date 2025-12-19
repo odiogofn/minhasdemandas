@@ -1,532 +1,182 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <title>Sistema de Demandas</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="styles.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.48.0/dist/umd/supabase.min.js" defer></script>
-  <script src="app.js" defer></script>
-<style>
-  /* Garantia anti-bug: mesmo se o CSS externo falhar */
-  .hidden{display:none !important;}
-  .typeahead{border:1px solid #ddd; border-radius:10px; margin-top:8px; background:#fff; max-height:260px; overflow:auto; box-shadow:0 10px 30px rgba(0,0,0,.08);}
-  .typeahead.hidden{display:none !important;}
-  .typeahead-item{width:100%; text-align:left; padding:10px 12px; background:transparent; border:0; border-bottom:1px solid #f0f0f0; cursor:pointer;}
-  .typeahead-item:hover{background:#f8f8f8;}
-  .typeahead-empty{padding:10px 12px; color:#666;}
-  .t-main{font-weight:600;}
-  .t-sub{font-size:12px; color:#666; margin-top:2px;}
-  .config-mini{margin-top:14px; padding:12px; border:1px dashed #ddd; border-radius:10px;}
-  .config-mini input{width:100%;}
-  .config-mini .grid{display:grid; grid-template-columns:1fr; gap:10px;}
-  .warn{color:#b45309;}
-</style>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Minhas Demandas</title>
+  <style>
+    #app-container{display:none !important;}
+    #auth-container{display:block;}
+    :root{--bg:#0b0f17;--card:#121a27;--muted:#9aa7bd;--text:#e7eefc;--line:#24324a;--accent:#4f8cff;--danger:#ff5b5b;}
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,#070a10,#0b0f17);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    .wrap{max-width:1100px;margin:0 auto;padding:20px}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+    .brand{font-weight:800}
+    .pill{font-size:12px;color:var(--muted);border:1px solid var(--line);padding:6px 10px;border-radius:999px}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .card{background:rgba(18,26,39,.85);border:1px solid rgba(36,50,74,.9);border-radius:16px;padding:14px;box-shadow:0 12px 30px rgba(0,0,0,.25)}
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
+    .hidden{display:none !important}
+    h2{margin:0 0 10px 0;font-size:18px}
+    label{display:block;font-size:12px;color:var(--muted);margin:0 0 6px 0}
+    input,select,textarea{width:100%;padding:10px;border-radius:12px;border:1px solid var(--line);background:#0c1220;color:var(--text);outline:none}
+    textarea{min-height:110px;resize:vertical}
+    input[readonly]{opacity:.9;background:#0a1020}
+    .btn{appearance:none;border:1px solid var(--line);background:#0c1220;color:var(--text);padding:10px 12px;border-radius:12px;cursor:pointer}
+    .btn.primary{background:linear-gradient(180deg,#4f8cff,#2f6cff);border-color:#2f6cff}
+    .btn.danger{background:transparent;border-color:rgba(255,91,91,.6);color:#ffd6d6}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+    .tab{border:1px solid var(--line);background:#0c1220;color:var(--text);padding:8px 10px;border-radius:999px;cursor:pointer;font-size:13px}
+    .tab.active{background:#17243b;border-color:#2f6cff}
+    .status{font-size:13px;color:var(--muted);margin-top:8px}
+    .typeahead{border:1px solid var(--line);border-radius:14px;margin-top:8px;background:#0c1220;max-height:280px;overflow:auto}
+    .typeahead-item{width:100%;text-align:left;padding:10px 12px;border:0;border-bottom:1px solid rgba(36,50,74,.55);background:transparent;color:var(--text);cursor:pointer}
+    .typeahead-item:hover{background:#101a2e}
+    .t-main{font-weight:700}
+    .t-sub{font-size:12px;color:var(--muted);margin-top:2px}
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width:820px){.two{grid-template-columns:1fr}}
+  </style>
 </head>
 <body>
-  <!-- TELA DE LOGIN / CADASTRO -->
-  <div id="auth-container" class="auth-card">
-    <h1>Sistema de Demandas</h1>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">Minhas Demandas</div>
+      <div class="row">
+        <div id="whoami" class="pill">Verificando sessão...</div>
+        <button id="btn-logout" class="btn danger hidden" type="button">Sair</button>
+      </div>
+    </div>
 
-    <div class="auth-columns">
-      <div class="auth-box">
-        <h2>Entrar</h2>
+    <section id="auth-container" class="card">
+      <h2>Entrar</h2>
+      <div class="two">
+        <div>
+          <label for="auth-email">Email</label>
+          <input id="auth-email" type="email" placeholder="seuemail@exemplo.com" autocomplete="email" />
+        </div>
+        <div>
+          <label for="auth-pass">Senha</label>
+          <input id="auth-pass" type="password" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="btn-login" class="btn primary" type="button">Login</button>
+        <button id="btn-signup" class="btn" type="button">Criar conta</button>
+      </div>
+      <div id="auth-status" class="status"></div>
+      <p class="status">
+        Variáveis exigidas: <b>VITE_SUPABASE_URL</b> e <b>VITE_SUPABASE_ANON_KEY</b> (Vercel/Vite).
+      </p>
+    </section>
 
-        <label for="login-email">Email</label>
-        <input type="email" id="login-email" />
-
-        <label for="login-senha">Senha</label>
-        <input type="password" id="login-senha" />
-
-        <button id="btn-login" class="btn primary" type="button">Entrar</button>
-        <p class="hint">Seu acesso só é liberado após aprovação do gestor.</p>
+    <section id="app-container">
+      <div class="tabs">
+        <button class="tab active" data-tab="tab-demandas" type="button">Demandas</button>
+        <button class="tab" data-tab="tab-clientes" type="button">Clientes</button>
       </div>
 
-      <div class="auth-box">
-        <h2>Novo Cadastro</h2>
+      <div id="tab-demandas" class="card">
+        <h2>Cadastro de Demanda</h2>
 
-        <label for="cad-nome">Nome</label>
-        <input type="text" id="cad-nome" />
+        <div class="card" style="margin-top:10px">
+          <h2 style="font-size:16px;margin-bottom:8px">Cliente (busca em tempo real)</h2>
+          <label for="dem-cliente-busca">Pesquisar por Cliente / Município / Tipo Entidade</label>
+          <input id="dem-cliente-busca" type="text" placeholder="Digite para buscar..." autocomplete="off" />
+          <div id="dem-cliente-resultados" class="typeahead hidden"></div>
 
-        <label for="cad-email">Email</label>
-        <input type="email" id="cad-email" />
-
-        <div class="row">
-          <div class="col">
-            <label for="cad-dt-nasc">Data de Nascimento</label>
-            <input type="date" id="cad-dt-nasc" />
+          <div class="grid" style="margin-top:10px">
+            <div style="grid-column:span 6">
+              <label>Cliente selecionado</label>
+              <input id="dem-cliente-nome" type="text" readonly />
+            </div>
+            <div style="grid-column:span 6">
+              <label>Tipo Entidade</label>
+              <input id="dem-cliente-tipo-entidade" type="text" readonly />
+            </div>
+            <div style="grid-column:span 6">
+              <label>Município</label>
+              <input id="dem-municipio" type="text" readonly />
+            </div>
+            <div style="grid-column:span 6">
+              <label>Estado</label>
+              <input id="dem-cliente-estado" type="text" readonly />
+            </div>
           </div>
-          <div class="col">
-            <label for="cad-unidade">Unidade</label>
-            <select id="cad-unidade">
+          <input id="dem-cliente-id" type="hidden" />
+        </div>
+
+        <div class="grid" style="margin-top:12px">
+          <div style="grid-column:span 6">
+            <label for="dem-assunto">Assunto</label>
+            <input id="dem-assunto" type="text" />
+          </div>
+          <div style="grid-column:span 3">
+            <label for="dem-status">Status</label>
+            <select id="dem-status">
+              <option value="Abertura">Abertura</option>
+              <option value="Em Andamento">Em Andamento</option>
+              <option value="Encaminhado">Encaminhado</option>
+              <option value="Concluído">Concluído</option>
+            </select>
+          </div>
+          <div style="grid-column:span 3">
+            <label for="dem-prioridade">Prioridade</label>
+            <select id="dem-prioridade">
+              <option value="Baixa">Baixa</option>
+              <option value="Média">Média</option>
+              <option value="Alta">Alta</option>
+              <option value="Urgente">Urgente</option>
+            </select>
+          </div>
+          <div style="grid-column:span 12">
+            <label for="dem-descricao">Descrição</label>
+            <textarea id="dem-descricao"></textarea>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <button id="btn-salvar-demanda" class="btn primary" type="button">Salvar Demanda</button>
+        </div>
+        <div id="dem-status-msg" class="status"></div>
+      </div>
+
+      <div id="tab-clientes" class="card hidden" style="margin-top:12px">
+        <h2>Cadastro de Cliente</h2>
+        <div class="grid" style="margin-top:10px">
+          <div style="grid-column:span 6">
+            <label for="cli-nome">Cliente</label>
+            <input id="cli-nome" type="text" />
+          </div>
+          <div style="grid-column:span 6">
+            <label for="cli-tipo-entidade">Tipo Entidade</label>
+            <select id="cli-tipo-entidade">
               <option value="">Selecione...</option>
-              <option>ASPEC</option>
-              <option>ITARGET</option>
+              <option value="AUTARQUIA">AUTARQUIA</option>
+              <option value="CM">CM</option>
+              <option value="PM">PM</option>
+              <option value="CONSORCIO">CONSORCIO</option>
+              <option value="IPM">IPM</option>
             </select>
           </div>
-        </div>
-
-        <label for="cad-tipo">Tipo de Usuário</label>
-        <select id="cad-tipo">
-          <option value="PROGRAMADOR">Programador</option>
-          <option value="SUPORTE">Suporte</option>
-          <option value="GESTOR">Gestor</option>
-        </select>
-
-        <div class="row">
-          <div class="col">
-            <label for="cad-senha">Senha (até 10 caracteres, sem símbolos)</label>
-            <input type="password" id="cad-senha" />
+          <div style="grid-column:span 6">
+            <label for="cli-municipio">Município</label>
+            <input id="cli-municipio" type="text" />
           </div>
-          <div class="col">
-            <label for="cad-senha2">Confirme a senha</label>
-            <input type="password" id="cad-senha2" />
+          <div style="grid-column:span 6">
+            <label for="cli-estado">Estado (sigla)</label>
+            <input id="cli-estado" type="text" />
           </div>
         </div>
-
-        <button id="btn-cadastrar" class="btn secondary" type="button">Cadastrar Usuário</button>
+        <div class="row" style="margin-top:10px">
+          <button id="btn-salvar-cliente" class="btn primary" type="button">Salvar Cliente</button>
+        </div>
+        <div id="cli-status-msg" class="status"></div>
       </div>
-    </div>
-
-    <p id="auth-status" class="status-text"></p>
-  <div id="supabase-config" class="config-mini hidden">
-    <strong class="warn">Configuração do Supabase necessária</strong>
-    <p class="muted">Cole sua URL e sua ANON KEY completas. Isso fica salvo no navegador (localStorage).</p>
-    <div class="grid">
-      <div class="col">
-        <label for="cfg-supabase-url">SUPABASE_URL</label>
-        <input id="cfg-supabase-url" type="text" placeholder="https://xxxx.supabase.co" />
-      </div>
-      <div class="col">
-        <label for="cfg-supabase-key">SUPABASE_ANON_KEY</label>
-        <input id="cfg-supabase-key" type="password" placeholder="eyJhbGciOi..." />
-      </div>
-      <div class="col">
-        <button id="btn-salvar-config" class="btn secondary" type="button">Salvar Configuração</button>
-      </div>
-    </div>
-  </div>
+    </section>
   </div>
 
-  <!-- APLICACAO PRINCIPAL -->
-  <div id="app-container" class="app hidden">
-    <header class="topbar">
-      <div class="topbar-left">
-        <span class="logo">Sistema de Demandas</span>
-        <span id="ajuda-perfil" class="perfil-hint"></span>
-      </div>
-      <div class="topbar-right">
-        <span id="user-label" class="user-label"></span>
-        <span class="badge ok">Supabase conectado</span>
-        <button id="btn-graficos" class="btn info" type="button">Gráficos</button>
-        <button id="btn-logout" class="btn danger" type="button">Sair</button>
-      </div>
-    </header>
-
-    <main class="layout">
-      <nav class="tabs" id="tabs-main" aria-label="Navegação">
-        <button class="tab-btn active" type="button" id="tab-demandas" data-tab="sec-lista-demandas">DEMANDAS</button>
-        <button class="tab-btn" type="button" id="tab-cad-demanda" data-tab="sec-cadastro-demanda">CADASTRAR DEMANDA</button>
-        <button class="tab-btn" type="button" id="tab-clientes" data-tab="sec-clientes">CADASTRO DE CLIENTES</button>
-        <button class="tab-btn hidden" type="button" id="tab-usuarios" data-tab="sec-usuarios">CADASTRO DE USUÁRIOS <span id="badge-pendentes" class="tab-badge hidden"></span></button>
-      </nav>
-      <!-- CADASTRO DE CLIENTES (apenas GESTOR e SUPORTE) -->
-      <section class="panel" id="sec-clientes">
-        <div class="panel-header">
-          <h2>Cadastro de Clientes</h2>
-          <span class="status-bar" id="status-clientes">Pronto</span>
-        </div>
-
-        <form id="form-cliente" class="form-grid">
-          <div class="row">
-<div class="col">
-  <label for="cli-nome">Cliente</label>
-  <input type="text" id="cli-nome" placeholder="CRATEÚS" />
-</div>
-<div class="col">
-  <label for="cli-tipo-entidade">Tipo Entidade</label>
-  <select id="cli-tipo-entidade">
-    <option value="">Selecione...</option>
-    <option value="AUTARQUIA">AUTARQUIA</option>
-    <option value="CM">CM</option>
-    <option value="CONSORCIO">CONSORCIO</option>
-    <option value="IPM">IPM</option>
-  </select>
-</div>
-</div>
-
-          <div class="row">
-  <div class="col">
-    <label for="cli-municipio">Município</label>
-    <input type="text" id="cli-municipio" placeholder="MILAGRES" />
-  </div>
-  <div class="col">
-    <label for="cli-estado">Estado</label>
-              <select id="cli-estado">
-                <option value="">Selecione...</option>
-                <option value="Maranhão">Maranhão</option>
-                <option value="Ceará">Ceará</option>
-                <option value="Pará">Pará</option>
-                <option value="Rio Grande do Norte">Rio Grande do Norte</option>
-                <option value="Amapá">Amapá</option>
-              </select>
-            </div>
-</div>
-
-          <div class="row">
-</div>
-
-          <button type="submit" class="btn primary">Salvar Cliente</button>
-        </form>
-
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Cliente</th>
-                <th>Município</th>
-                                <th>Estado</th>
-                
-                
-                <th class="col-actions">Ações</th>
-              </tr>
-            </thead>
-            <tbody id="tabela-clientes"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- CADASTRO DE DEMANDA -->
-      <section class="panel" id="sec-cadastro-demanda">
-        <div class="panel-header">
-          <h2>Cadastro de Demanda</h2>
-          <span class="status-bar" id="status-bar">Pronto</span>
-        </div>
-
-        <form id="form-demanda" class="form-grid">
-          <!-- Seleção em cascata do Cliente -->
-
-          <!-- Localizar cliente (pesquisa no cadastro de clientes) -->
-          <div class="row">
-</div>
-
-          <div class="card">
-  <h3>Cliente (pesquisa em tempo real)</h3>
-  <div class="grid">
-    <div class="col col-12">
-      <label for="dem-cliente-busca">Pesquisar cliente / município / tipo entidade</label>
-      <input id="dem-cliente-busca" type="text" placeholder="Digite para buscar... (ex: IPM Milagres, Crateús, CM)" autocomplete="off" />
-      <div id="dem-cliente-resultados" class="typeahead hidden"></div>
-      <input id="dem-cliente-id" type="hidden" />
-    </div>
-
-    <div class="col col-6">
-      <label>Cliente selecionado</label>
-      <input id="dem-cliente-nome" type="text" readonly />
-    </div>
-    <div class="col col-6">
-      <label>Tipo Entidade</label>
-      <input id="dem-cliente-tipo-entidade" type="text" readonly />
-    </div>
-
-    <div class="col col-6">
-      <label>Município</label>
-      <input id="dem-municipio" type="text" readonly />
-    </div>
-    <div class="col col-6">
-      <label>Estado</label>
-      <input id="dem-cliente-estado" type="text" readonly />
-    </div>
-  </div>
-  <p class="muted">Dica: ao selecionar um resultado, os dados acima são preenchidos automaticamente e serão gravados na demanda.</p>
-</div>
-          </div>
-
-          <div class="row">
-            <div class="col">
-              <label for="dem-programador">Programador (somente usuários PROGRAMADOR)</label>
-              <select id="dem-programador"></select>
-            </div>
-            <div class="col">
-              <label for="dem-forma-atendimento-input">Forma de Atendimento (digite e pressione vírgula ou Enter)</label>
-              <input type="text" id="dem-forma-atendimento-input" placeholder="ANYDESK, EMAIL, TELEFONE..." />
-              <div id="dem-forma-atendimento-chips" class="chips"></div>
-            </div>
-          </div>
-
-          <!-- TAGS -->
-          <div class="row">
-            <div class="col">
-              <label for="dem-tags-input">TAGS (digite e pressione vírgula ou Enter)</label>
-              <input type="text" id="dem-tags-input" placeholder="ex: IRRF, FÉRIAS, RESCISÃO" />
-              <div id="dem-tags-chips" class="chips"></div>
-            </div>
-          </div>
-
-          <div class="row">
-            <div class="col">
-              <label for="dem-status">Status</label>
-              <select id="dem-status">
-                <option value="ABERTURA">Abertura</option>
-                <option value="EM ANDAMENTO">Em Andamento</option>
-                <option value="ENCAMINHADO">Encaminhado</option>
-                <option value="CONCLUÍDO">Concluído</option>
-              </select>
-            </div>
-            <div class="col">
-              <label for="dem-prioridade">Prioridade</label>
-              <select id="dem-prioridade">
-                <option value="BAIXA">Baixa</option>
-                <option value="MÉDIA" selected>Média</option>
-                <option value="ALTA">Alta</option>
-                <option value="URGENTE">Urgente</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="row">
-            <div class="col">
-              <label for="dem-link-trello">Link Trello</label>
-              <input type="url" id="dem-link-trello" />
-            </div>
-            <div class="col">
-              <label for="dem-link-email">Link Email (código)</label>
-              <input type="text" id="dem-link-email" />
-            </div>
-          </div>
-
-          <div class="row">
-            <div class="col">
-              <label for="dem-encaminhar-para">Encaminhar (opcional)</label>
-              <select id="dem-encaminhar-para"></select>
-              <p class="hint">Se o destino for PROGRAMADOR, o campo Programador será preenchido automaticamente.</p>
-            </div>
-          </div>
-
-          <button type="submit" class="btn primary">Salvar Demanda</button>
-        </form>
-      </section>
-
-      <!-- LISTA DE DEMANDAS -->
-      <section class="panel" id="sec-lista-demandas">
-        <div class="panel-header">
-          <h2>Demandas</h2>
-
-          <div class="filters">
-            <input type="text" id="filtro-busca" placeholder="Buscar por descrição, assunto ou código..." />
-
-            <label class="inline">
-              <input type="checkbox" id="filtro-ocultar-concluidas" />
-              Ocultar concluídas
-            </label>
-
-            <label class="inline">
-              <input type="checkbox" id="filtro-consultar-todas" />
-              Consultar todas (somente leitura)
-            </label>
-
-            <select id="filtro-status">
-              <option value="TODOS">Todos Status</option>
-              <option value="ABERTURA">Abertura</option>
-              <option value="EM ANDAMENTO">Em Andamento</option>
-              <option value="ENCAMINHADO">Encaminhado</option>
-              <option value="CONCLUÍDO">Concluído</option>
-            </select>
-
-            <select id="filtro-atendente"></select>
-            <select id="filtro-programador"></select>
-            <select id="filtro-municipio"></select>
-            <select id="filtro-estado"></select>
-                      </div>
-        </div>
-
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Código</th>
-                <th>Município</th>
-                <th>Cliente</th>
-                <th>Assunto</th>
-                <th>Status</th>
-                <th>Prioridade</th>
-                <th class="col-actions">Ações</th>
-              </tr>
-            </thead>
-            <tbody id="tabela-demandas"></tbody>
-          </table>
-        </div>
-
-        <p id="total-demandas" class="status-text"></p>
-      </section>
-
-      
-      <!-- CADASTRO DE USUÁRIOS (APENAS GESTOR) -->
-      <section class="panel wide hidden" id="sec-usuarios">
-        <div class="panel-header">
-          <h2>Cadastro de Usuários</h2>
-          <span class="hint">Apenas Gestor visualiza e gerencia usuários (Ativar/Inativar/Editar/Excluir).</span>
-        </div>
-
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Email</th>
-                                <th>Unidade</th>
-                <th>Status</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody id="tabela-usuarios"></tbody>
-          </table>
-        </div>
-      </section>
-
-<!-- PAINEL DO GESTOR (APENAS GESTOR) -->
-      <section class="panel wide hidden" id="sec-painel-gestor">
-        <div class="panel-header">
-          <h2>Painel do Gestor</h2>
-        </div>
-
-        <div class="row">
-          <div class="col">
-            <h3 class="subttl">Top 10 últimas cadastradas</h3>
-            <div class="table-wrapper">
-              <table>
-                <thead>
-                  <tr><th>Código</th><th>Município</th><th>Assunto</th><th>Criado em</th></tr>
-                </thead>
-                <tbody id="gestor-top10-cadastradas"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="col">
-            <h3 class="subttl">Top 10 últimas concluídas</h3>
-            <div class="table-wrapper">
-              <table>
-                <thead>
-                  <tr><th>Código</th><th>Município</th><th>Assunto</th><th>Atualizado</th></tr>
-                </thead>
-                <tbody id="gestor-top10-concluidas"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </section>
-    </main>
-  </div>
-
-  <!-- MODAL DE DETALHES -->
-  <div id="modal-overlay" class="modal-overlay hidden"></div>
-  <div id="modal-detalhes" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
-    <div class="modal-header">
-      <div>
-        <h2 id="modal-titulo">Demanda</h2>
-        <p class="modal-sub" id="modal-subtitulo"></p>
-      </div>
-      <button id="btn-fechar-modal" class="btn ghost" type="button">Fechar</button>
-    </div>
-
-    <div class="modal-body">
-      <input type="hidden" id="det-demanda-id" />
-
-      <div class="modal-section">
-        <h3>Resumo</h3>
-        <div class="detalhes-grid">
-          <div><strong>Código:</strong> <span id="det-codigo"></span></div>
-          <div><strong>Município:</strong> <span id="det-municipio"></span></div>
-
-          <div><strong>Cliente:</strong> <span id="det-cliente"></span></div>
-          <div><strong>Cliente Tipo:</strong> <span id="det-cliente-tipo"></span></div>
-          <div><strong>Cliente Estado:</strong> <span id="det-cliente-estado"></span></div><div><strong>Tipo Entidade:</strong> <span id="det-tipo-entidade"></span></div>
-          <div><strong>Assunto:</strong> <span id="det-assunto"></span></div>
-
-          <div class="full"><strong>Descrição:</strong> <span id="det-descricao"></span></div>
-
-          <div><strong>Programador:</strong> <span id="det-programador"></span></div>
-          <div><strong>Encaminhar para:</strong> <span id="det-encaminhar-para"></span></div>
-          <div><strong>Forma Atendimento:</strong> <span id="det-forma-atendimento"></span></div>
-
-          <div><strong>TAGS:</strong> <span id="det-tags"></span></div>
-
-          <div><strong>Prioridade:</strong> <span id="det-prioridade"></span></div>
-          <div><strong>Status:</strong> <span id="det-status"></span></div>
-
-          <div><strong>Suporte:</strong> <span id="det-atendente"></span></div>
-          <div><strong>Link Trello:</strong> <span id="det-link-trello"></span></div>
-          <div><strong>Link Email:</strong> <span id="det-link-email"></span></div>
-          <div><strong>Criado em:</strong> <span id="det-criado-em"></span></div>
-        </div>
-      </div>
-
-      <div class="modal-section" id="sec-acoes-demanda">
-        <h3>Ações</h3>
-        <div class="acoes-grid">
-          <div class="acao-card" id="card-encaminhar">
-            <h4>Encaminhar</h4>
-            <label for="sel-encaminhar-usuario">Encaminhar para</label>
-            <select id="sel-encaminhar-usuario"></select>
-            <button id="btn-encaminhar" class="btn primary" type="button">Encaminhar</button>
-            <p class="hint">
-              Se o destino for PROGRAMADOR, muda o campo Programador.
-              Se for outro perfil, muda apenas “Encaminhar para”.
-            </p>
-          </div>
-
-          <div class="acao-card" id="card-devolver">
-            <h4>Devolver</h4>
-            <p class="hint">Volta a demanda para o usuário que cadastrou inicialmente (solicitante).</p>
-            <button id="btn-devolver" class="btn secondary" type="button">Devolver ao solicitante</button>
-          </div>
-
-          <div class="acao-card" id="card-editar">
-            <h4>Editar</h4>
-            <button id="btn-editar-demanda" class="btn secondary" type="button">Editar campos</button>
-            <p class="hint">Somente o criador (Suporte) ou Gestor.</p>
-          </div>
-
-          <div class="acao-card danger" id="card-excluir">
-            <h4>Excluir</h4>
-            <button id="btn-excluir-demanda" class="btn danger" type="button">Excluir demanda</button>
-            <p class="hint">Ação permanente.</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-section">
-        <h3>Atualizações</h3>
-        <ul id="lista-atualizacoes" class="lista-atualizacoes"></ul>
-
-        <form id="form-atualizacao-demanda" class="form-atualizacao">
-          <textarea id="nova-atualizacao-texto" placeholder="Registrar novo andamento..."></textarea>
-          <button type="submit" class="btn primary">Adicionar atualização</button>
-          <p class="hint">Você pode editar/excluir seu próprio andamento. Gestor pode tudo.</p>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL EDITAR ATUALIZAÇÃO -->
-  <div id="modal-upd-overlay" class="modal-overlay hidden"></div>
-  <div id="modal-upd" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="upd-titulo">
-    <div class="modal-header">
-      <div>
-        <h2 id="upd-titulo">Editar andamento</h2>
-        <p class="modal-sub" id="upd-subtitulo"></p>
-      </div>
-      <button id="btn-fechar-upd" class="btn ghost" type="button">Fechar</button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="upd-id" />
-      <textarea id="upd-texto" style="min-height:120px;"></textarea>
-      <div class="row" style="margin-top:8px;">
-        <button id="btn-salvar-upd" class="btn primary" type="button">Salvar</button>
-        <button id="btn-excluir-upd" class="btn danger" type="button">Excluir</button>
-      </div>
-    </div>
-  </div>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>
