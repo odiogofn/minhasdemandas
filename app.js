@@ -4,7 +4,8 @@
 const SUPABASE_URL = "https://dpbrwvtatufahxbwcyud.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRwYnJ3dnRhdHVmYWh4YndjeXVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0MTU1ODYsImV4cCI6MjA4MTk5MTU4Nn0.EAxDG7Lpt_4sldfGb22IGY0pjvc6ueOKbnnUi6QQa8c";
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// NÃO use "supabase" como nome de variável aqui (a lib já expõe window.supabase)
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // =========================
 // HELPERS
@@ -12,6 +13,7 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = (id) => document.getElementById(id);
 
 function setMsg(el, text, type = "info") {
+  if (!el) return;
   el.textContent = text || "";
   if (!text) return;
   if (type === "ok") el.textContent = "✅ " + text;
@@ -33,6 +35,7 @@ function tagsToString(arr) {
 }
 
 function renderTags(container, tags) {
+  if (!container) return;
   container.innerHTML = "";
   (tags || []).forEach(t => {
     const span = document.createElement("span");
@@ -67,6 +70,15 @@ function statusLabel(s) {
   return map[s] || s;
 }
 
+function normalizeRole(role) {
+  const r = String(role || "").trim().toUpperCase();
+  return ["PROGRAMADOR","SUPORTE","GESTOR"].includes(r) ? r : null;
+}
+
+function isSupportOrManager() {
+  return profile?.role === "SUPORTE" || profile?.role === "GESTOR";
+}
+
 // =========================
 // STATE
 // =========================
@@ -76,26 +88,26 @@ let profile = null;
 let usersCache = [];
 let clientsCache = [];
 
-// Paginação/consulta de demandas
+// Paginação
 let demandPage = 1;
 let demandPageSize = 10;
 let demandTotal = 0;
 
-// demanda selecionada p/ edição
+// Modal edição
 let editingDemand = null;
 
 // =========================
 // AUTH
 // =========================
 async function loadSession() {
-  const { data } = await supabase.auth.getSession();
+  const { data } = await sb.auth.getSession();
   sessionUser = data?.session?.user || null;
   return sessionUser;
 }
 
 async function fetchMyProfile() {
   if (!sessionUser) return null;
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from("profiles")
     .select("user_id, login, full_name, role, status")
     .eq("user_id", sessionUser.id)
@@ -105,23 +117,23 @@ async function fetchMyProfile() {
 }
 
 function showAuthUI() {
-  $("pageAuth").classList.remove("hidden");
-  $("nav").classList.add("hidden");
+  $("pageAuth")?.classList.remove("hidden");
+  $("nav")?.classList.add("hidden");
 
-  $("pageClients").classList.add("hidden");
-  $("pageDemands").classList.add("hidden");
-  $("pageManage").classList.add("hidden");
-  $("pendingBox").classList.add("hidden");
+  $("pageClients")?.classList.add("hidden");
+  $("pageDemands")?.classList.add("hidden");
+  $("pageManage")?.classList.add("hidden");
+  $("pendingBox")?.classList.add("hidden");
 
-  $("btnLogout").classList.add("hidden");
-  $("userBadge").classList.add("hidden");
+  $("btnLogout")?.classList.add("hidden");
+  $("userBadge")?.classList.add("hidden");
 }
 
 function showAppUI() {
-  $("pageAuth").classList.add("hidden");
-  $("nav").classList.remove("hidden");
-  $("btnLogout").classList.remove("hidden");
-  $("userBadge").classList.remove("hidden");
+  $("pageAuth")?.classList.add("hidden");
+  $("nav")?.classList.remove("hidden");
+  $("btnLogout")?.classList.remove("hidden");
+  $("userBadge")?.classList.remove("hidden");
 }
 
 function setUserBadge() {
@@ -132,29 +144,30 @@ function setUserBadge() {
 
 function configureTabsByRole() {
   const manageBtn = [...document.querySelectorAll(".tab")].find(b => b.dataset.tab === "manage");
+  if (!manageBtn) return;
   if (profile.role === "GESTOR") manageBtn.classList.remove("hidden");
   else manageBtn.classList.add("hidden");
 }
 
 function activateTab(name) {
   [...document.querySelectorAll(".tab")].forEach(b => b.classList.toggle("active", b.dataset.tab === name));
-  $("pageClients").classList.toggle("hidden", name !== "clients");
-  $("pageDemands").classList.toggle("hidden", name !== "demands");
-  $("pageManage").classList.toggle("hidden", name !== "manage");
+  $("pageClients")?.classList.toggle("hidden", name !== "clients");
+  $("pageDemands")?.classList.toggle("hidden", name !== "demands");
+  $("pageManage")?.classList.toggle("hidden", name !== "manage");
 }
 
 async function ensureActiveOrPendingGate() {
   if (profile.status !== "ATIVO") {
-    $("pendingBox").classList.remove("hidden");
-    $("nav").classList.add("hidden");
+    $("pendingBox")?.classList.remove("hidden");
+    $("nav")?.classList.add("hidden");
 
-    $("pageClients").classList.add("hidden");
-    $("pageDemands").classList.add("hidden");
-    $("pageManage").classList.add("hidden");
+    $("pageClients")?.classList.add("hidden");
+    $("pageDemands")?.classList.add("hidden");
+    $("pageManage")?.classList.add("hidden");
     return false;
   }
-  $("pendingBox").classList.add("hidden");
-  $("nav").classList.remove("hidden");
+  $("pendingBox")?.classList.add("hidden");
+  $("nav")?.classList.remove("hidden");
   return true;
 }
 
@@ -162,27 +175,29 @@ async function ensureActiveOrPendingGate() {
 // LOADERS (USERS/CLIENTS)
 // =========================
 async function loadUsersForEncaminhar() {
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from("profiles")
-    .select("user_id, full_name, login, role, status")
+    .select("user_id, full_name, login, role, status, created_at")
     .order("full_name", { ascending: true });
 
   if (error) { usersCache = []; return; }
   usersCache = data || [];
 
-  // select do "Nova demanda"
+  // Select de encaminhar no cadastro de demanda
   const sel = $("dEncaminhar");
-  sel.innerHTML = `<option value="">— selecione —</option>`;
-  usersCache.filter(u => u.status === "ATIVO").forEach(u => {
-    const opt = document.createElement("option");
-    opt.value = u.user_id;
-    opt.textContent = `${u.full_name} (${u.role})`;
-    sel.appendChild(opt);
-  });
+  if (sel) {
+    sel.innerHTML = `<option value="">— selecione —</option>`;
+    usersCache.filter(u => u.status === "ATIVO").forEach(u => {
+      const opt = document.createElement("option");
+      opt.value = u.user_id;
+      opt.textContent = `${u.full_name} (${u.role})`;
+      sel.appendChild(opt);
+    });
+  }
 }
 
 async function loadClients() {
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from("clients")
     .select("id, cliente, entidade, tipo_entidade, estado, created_at")
     .order("cliente", { ascending: true });
@@ -199,31 +214,29 @@ async function loadClients() {
 }
 
 // =========================
-// DEMANDS: QUERY BUILDER (server-side filters + pagination)
+// DEMANDS: FILTERS + PAGINATION (server-side)
 // =========================
 function getDemandFilters() {
-  const q = ($("demandSearch").value || "").trim();
-  const status = $("demandStatusFilter").value || "";
-
-  const mine = $("filterMine").checked;
-  const assignedToMe = $("filterAssignedToMe").checked;
-
+  const q = ($("demandSearch")?.value || "").trim();
+  const status = $("demandStatusFilter")?.value || "";
+  const mine = $("filterMine")?.checked || false;
+  const assignedToMe = $("filterAssignedToMe")?.checked || false;
   return { q, status, mine, assignedToMe };
 }
 
 function applyRoleDefaultFilters() {
-  // SUPORTE: deixa "Minhas" opcional (padrão desligado)
-  // PROGRAMADOR: por regra já vê só encaminhadas pra ele, mas marcamos o checkbox pra ficar claro
+  if (!$("filterMine") || !$("filterAssignedToMe")) return;
+
   if (profile.role === "PROGRAMADOR") {
     $("filterAssignedToMe").checked = true;
     $("filterMine").checked = false;
     $("filterMine").disabled = true;
+    $("filterAssignedToMe").disabled = false;
   } else if (profile.role === "SUPORTE") {
     $("filterMine").disabled = false;
     $("filterAssignedToMe").checked = false;
-    $("filterAssignedToMe").disabled = true; // suporte não precisa disso (ele vê tudo que tem permissão)
+    $("filterAssignedToMe").disabled = true;
   } else {
-    // gestor: pode usar ambos
     $("filterMine").disabled = false;
     $("filterAssignedToMe").disabled = false;
   }
@@ -231,25 +244,19 @@ function applyRoleDefaultFilters() {
 
 async function loadDemandsPage(page = 1) {
   demandPage = Math.max(1, page);
-  demandPageSize = parseInt($("pageSize").value, 10) || 10;
+  demandPageSize = parseInt($("pageSize")?.value || "10", 10) || 10;
 
   const { q, status, mine, assignedToMe } = getDemandFilters();
 
-  let query = supabase
+  let query = sb
     .from("v_demands")
     .select("*", { count: "exact" })
     .order("created_at", { ascending: false });
 
-  // status
   if (status) query = query.eq("status", status);
-
-  // mine (suporte/gestor)
   if (mine) query = query.eq("created_by", sessionUser.id);
-
-  // assignedToMe (programador/gestor)
   if (assignedToMe) query = query.eq("encaminhar_user_id", sessionUser.id);
 
-  // busca (server-side, campos text)
   if (q) {
     const safe = q.replaceAll("%", "\\%").replaceAll("_", "\\_");
     query = query.or(
@@ -284,48 +291,45 @@ function updatePager(total) {
   const totalPages = Math.max(1, Math.ceil((total || 0) / demandPageSize));
   if (demandPage > totalPages) demandPage = totalPages;
 
-  $("pagerInfo").textContent = `Página ${demandPage} de ${totalPages} • Total: ${total || 0}`;
+  const pagerInfo = $("pagerInfo");
+  if (pagerInfo) pagerInfo.textContent = `Página ${demandPage} de ${totalPages} • Total: ${total || 0}`;
 
-  $("btnPrev").disabled = demandPage <= 1;
-  $("btnNext").disabled = demandPage >= totalPages;
+  if ($("btnPrev")) $("btnPrev").disabled = demandPage <= 1;
+  if ($("btnNext")) $("btnNext").disabled = demandPage >= totalPages;
 }
 
 // =========================
-// DASHBOARD (contadores por status e responsável)
-// Usa client-side agregando (aplicando RLS automaticamente)
+// DASHBOARD
 // =========================
 async function loadDashboard() {
   setMsg($("dashMsg"), "");
 
-  // Para dashboard precisamos dos campos status/responsavel visíveis ao usuário
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from("demands")
     .select("status, responsavel");
 
   if (error) {
     setMsg($("dashMsg"), error.message, "bad");
-    $("dashStatus").innerHTML = "";
-    $("dashResp").innerHTML = "";
+    if ($("dashStatus")) $("dashStatus").innerHTML = "";
+    if ($("dashResp")) $("dashResp").innerHTML = "";
     return;
   }
 
   const rows = data || [];
 
-  // status counts
   const statusCounts = { ABERTURA:0, PROGRAMACAO:0, EM_ANALISE:0, CONCLUIDO:0 };
-  for (const r of rows) {
-    if (statusCounts[r.status] !== undefined) statusCounts[r.status] += 1;
+  for (const r of rows) if (statusCounts[r.status] !== undefined) statusCounts[r.status] += 1;
+
+  if ($("dashStatus")) {
+    $("dashStatus").innerHTML = "";
+    Object.entries(statusCounts).forEach(([k,v]) => {
+      const div = document.createElement("div");
+      div.className = "stat-pill";
+      div.innerHTML = `<div class="muted">${escapeHtml(statusLabel(k))}</div><b>${v}</b>`;
+      $("dashStatus").appendChild(div);
+    });
   }
 
-  $("dashStatus").innerHTML = "";
-  Object.entries(statusCounts).forEach(([k,v]) => {
-    const div = document.createElement("div");
-    div.className = "stat-pill";
-    div.innerHTML = `<div class="muted">${escapeHtml(statusLabel(k))}</div><b>${v}</b>`;
-    $("dashStatus").appendChild(div);
-  });
-
-  // responsável counts
   const respMap = new Map();
   for (const r of rows) {
     const resp = (r.responsavel || "—").trim() || "—";
@@ -333,16 +337,18 @@ async function loadDashboard() {
   }
 
   const respSorted = [...respMap.entries()].sort((a,b) => b[1] - a[1]).slice(0, 12);
-  $("dashResp").innerHTML = "";
-  if (!respSorted.length) {
-    $("dashResp").innerHTML = `<div class="resp-line"><span class="name">Sem dados</span><span class="count">0</span></div>`;
-  } else {
-    respSorted.forEach(([name,count]) => {
-      const line = document.createElement("div");
-      line.className = "resp-line";
-      line.innerHTML = `<span class="name">${escapeHtml(name)}</span><span class="count">${count}</span>`;
-      $("dashResp").appendChild(line);
-    });
+  if ($("dashResp")) {
+    $("dashResp").innerHTML = "";
+    if (!respSorted.length) {
+      $("dashResp").innerHTML = `<div class="resp-line"><span class="name">Sem dados</span><span class="count">0</span></div>`;
+    } else {
+      respSorted.forEach(([name,count]) => {
+        const line = document.createElement("div");
+        line.className = "resp-line";
+        line.innerHTML = `<span class="name">${escapeHtml(name)}</span><span class="count">${count}</span>`;
+        $("dashResp").appendChild(line);
+      });
+    }
   }
 
   setMsg($("dashMsg"), `Dashboard calculado com ${rows.length} demandas visíveis para você.`, "ok");
@@ -353,6 +359,7 @@ async function loadDashboard() {
 // =========================
 function renderClients(list) {
   const box = $("clientsList");
+  if (!box) return;
   box.innerHTML = "";
 
   if (!list.length) {
@@ -377,6 +384,7 @@ function renderClients(list) {
 
 function fillClientSelect(list) {
   const sel = $("dClientSelect");
+  if (!sel) return;
   sel.innerHTML = `<option value="">— selecione —</option>`;
   list.forEach(c => {
     const opt = document.createElement("option");
@@ -395,6 +403,7 @@ function fillClientSelect(list) {
 // =========================
 function renderDemands(list) {
   const box = $("demandsList");
+  if (!box) return;
   box.innerHTML = "";
 
   if (!list.length) {
@@ -423,7 +432,6 @@ function renderDemands(list) {
           </div>
 
           <div class="tags">${tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("")}</div>
-
           ${d.encaminhar_name ? `<div class="meta">Encaminhado: <b>${escapeHtml(d.encaminhar_name)}</b></div>` : ""}
         </div>
 
@@ -444,56 +452,48 @@ function renderDemands(list) {
 
         if (act === "del") {
           if (!confirm("Excluir esta demanda?")) return;
-          const { error } = await supabase.from("demands").delete().eq("id", id);
+          const { error } = await sb.from("demands").delete().eq("id", id);
           if (error) alert("Erro ao excluir: " + error.message);
           await loadDemandsPage(demandPage);
           await loadDashboard();
           return;
         }
-
-        if (act === "edit") {
-          await openEditModal(id);
-          return;
-        }
-
-        if (act === "comments") {
-          await openCommentsModal(id);
-          return;
-        }
+        if (act === "edit") return openEditModal(id);
+        if (act === "comments") return openCommentsModal(id);
       });
     });
   });
 }
 
 // =========================
-// DEMAND CREATE BEHAVIOR
+// DEMAND FORM (CREATE)
 // =========================
 function resetDemandClientInfo() {
-  $("dCliente").value = "";
-  $("dEntidade").value = "";
-  $("dTipo").value = "";
-  $("dEstado").value = "";
-  $("dFields").classList.add("disabled");
+  if ($("dCliente")) $("dCliente").value = "";
+  if ($("dEntidade")) $("dEntidade").value = "";
+  if ($("dTipo")) $("dTipo").value = "";
+  if ($("dEstado")) $("dEstado").value = "";
+  $("dFields")?.classList.add("disabled");
 }
 
 function setDemandClientInfoFromOption(opt) {
-  $("dCliente").value = opt.dataset.cliente || "";
-  $("dEntidade").value = opt.dataset.entidade || "";
-  $("dTipo").value = opt.dataset.tipo || "";
-  $("dEstado").value = opt.dataset.estado || "";
-  $("dFields").classList.remove("disabled");
+  if ($("dCliente")) $("dCliente").value = opt.dataset.cliente || "";
+  if ($("dEntidade")) $("dEntidade").value = opt.dataset.entidade || "";
+  if ($("dTipo")) $("dTipo").value = opt.dataset.tipo || "";
+  if ($("dEstado")) $("dEstado").value = opt.dataset.estado || "";
+  $("dFields")?.classList.remove("disabled");
 }
 
 function configureDemandFormByRole() {
-  const isSupportOrManager = profile.role === "SUPORTE" || profile.role === "GESTOR";
-  $("btnCreateDemand").disabled = !isSupportOrManager;
-  $("btnCreateClient").disabled = !isSupportOrManager;
+  const canCreate = isSupportOrManager();
+  if ($("btnCreateDemand")) $("btnCreateDemand").disabled = !canCreate;
+  if ($("btnCreateClient")) $("btnCreateClient").disabled = !canCreate;
 
-  $("encaminharBox").classList.toggle("hidden", true);
+  $("encaminharBox")?.classList.toggle("hidden", true);
 
-  $("dStatus").addEventListener("change", () => {
+  $("dStatus")?.addEventListener("change", () => {
     const isProg = $("dStatus").value === "PROGRAMACAO";
-    $("encaminharBox").classList.toggle("hidden", !(isProg && isSupportOrManager));
+    $("encaminharBox")?.classList.toggle("hidden", !(isProg && canCreate));
   });
 }
 
@@ -501,7 +501,7 @@ function configureDemandFormByRole() {
 // COMMENTS MODAL
 // =========================
 async function loadComments(demandId) {
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from("demand_comments")
     .select("id, demand_id, user_id, content, created_at, updated_at")
     .eq("demand_id", demandId)
@@ -512,7 +512,7 @@ async function loadComments(demandId) {
 }
 
 async function getDemandForModals(demandId) {
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from("v_demands")
     .select("*")
     .eq("id", demandId)
@@ -525,11 +525,12 @@ async function openCommentsModal(demandId) {
   const demand = await getDemandForModals(demandId);
   if (!demand) return alert("Você não tem acesso a essa demanda.");
 
-  $("modal").classList.remove("hidden");
-  $("modalTitle").textContent = `Atualizações — ${demand.cliente} (${statusLabel(demand.status)})`;
+  $("modal")?.classList.remove("hidden");
+  if ($("modalTitle")) $("modalTitle").textContent = `Atualizações — ${demand.cliente} (${statusLabel(demand.status)})`;
 
   const comments = await loadComments(demand.id);
   const body = $("modalBody");
+  if (!body) return;
 
   body.innerHTML = `
     <div class="block">
@@ -558,7 +559,7 @@ async function openCommentsModal(demandId) {
     const content = (document.getElementById("newComment").value || "").trim();
     if (!content) return setMsg(document.getElementById("commentMsg"), "Digite algo.", "warn");
 
-    const { error } = await supabase.from("demand_comments").insert({
+    const { error } = await sb.from("demand_comments").insert({
       demand_id: demand.id,
       user_id: sessionUser.id,
       content
@@ -575,6 +576,7 @@ async function openCommentsModal(demandId) {
 }
 
 function renderCommentsList(container, comments) {
+  if (!container) return;
   container.innerHTML = "";
 
   if (!comments.length) {
@@ -610,7 +612,7 @@ function renderCommentsList(container, comments) {
 
         if (act === "delc") {
           if (!confirm("Excluir comentário?")) return;
-          const { error } = await supabase.from("demand_comments").delete().eq("id", id);
+          const { error } = await sb.from("demand_comments").delete().eq("id", id);
           if (error) alert("Erro: " + error.message);
           return;
         }
@@ -620,7 +622,7 @@ function renderCommentsList(container, comments) {
           if (novo === null) return;
           const content = novo.trim();
           if (!content) return alert("Conteúdo vazio.");
-          const { error } = await supabase.from("demand_comments").update({ content }).eq("id", id);
+          const { error } = await sb.from("demand_comments").update({ content }).eq("id", id);
           if (error) alert("Erro: " + error.message);
           return;
         }
@@ -648,30 +650,20 @@ async function openEditModal(demandId) {
 
   editingDemand = d;
 
-  $("modalEdit").classList.remove("hidden");
-  $("editTitle").textContent = `Editar — ${d.cliente} (${statusLabel(d.status)})`;
+  $("modalEdit")?.classList.remove("hidden");
+  if ($("editTitle")) $("editTitle").textContent = `Editar — ${d.cliente} (${statusLabel(d.status)})`;
   setMsg($("editMsg"), "");
 
-  // campos em modal: todos os editáveis do demands
-  $("editBody").innerHTML = `
+  const body = $("editBody");
+  if (!body) return;
+
+  body.innerHTML = `
     <div class="block">
       <div class="grid2">
-        <div>
-          <label>Cliente (somente leitura)</label>
-          <input type="text" value="${escapeAttr(d.cliente)}" readonly />
-        </div>
-        <div>
-          <label>Entidade (somente leitura)</label>
-          <input type="text" value="${escapeAttr(d.entidade)}" readonly />
-        </div>
-        <div>
-          <label>Tipo Entidade (somente leitura)</label>
-          <input type="text" value="${escapeAttr(d.tipo_entidade)}" readonly />
-        </div>
-        <div>
-          <label>Estado (somente leitura)</label>
-          <input type="text" value="${escapeAttr(d.estado)}" readonly />
-        </div>
+        <div><label>Cliente (somente leitura)</label><input type="text" value="${escapeAttr(d.cliente)}" readonly /></div>
+        <div><label>Entidade (somente leitura)</label><input type="text" value="${escapeAttr(d.entidade)}" readonly /></div>
+        <div><label>Tipo Entidade (somente leitura)</label><input type="text" value="${escapeAttr(d.tipo_entidade)}" readonly /></div>
+        <div><label>Estado (somente leitura)</label><input type="text" value="${escapeAttr(d.estado)}" readonly /></div>
       </div>
     </div>
 
@@ -717,23 +709,20 @@ async function openEditModal(demandId) {
 
       <div id="eEncBox" class="${(d.status === "PROGRAMACAO") ? "" : "hidden"}">
         <label>Encaminhar</label>
-        <select id="eEncaminhar">
-          ${usersOptionsHtml(d.encaminhar_user_id)}
-        </select>
+        <select id="eEncaminhar">${usersOptionsHtml(d.encaminhar_user_id)}</select>
       </div>
     </div>
   `;
 
-  // previews tags
   renderTags($("eAssuntoPreview"), parseTags($("eAssunto").value));
   renderTags($("eCanalPreview"), parseTags($("eCanal").value));
 
-  $("eAssunto").addEventListener("input", () => renderTags($("eAssuntoPreview"), parseTags($("eAssunto").value)));
-  $("eCanal").addEventListener("input", () => renderTags($("eCanalPreview"), parseTags($("eCanal").value)));
+  $("eAssunto")?.addEventListener("input", () => renderTags($("eAssuntoPreview"), parseTags($("eAssunto").value)));
+  $("eCanal")?.addEventListener("input", () => renderTags($("eCanalPreview"), parseTags($("eCanal").value)));
 
-  $("eStatus").addEventListener("change", () => {
+  $("eStatus")?.addEventListener("change", () => {
     const show = $("eStatus").value === "PROGRAMACAO";
-    $("eEncBox").classList.toggle("hidden", !show);
+    $("eEncBox")?.classList.toggle("hidden", !show);
     if (!show) {
       const sel = $("eEncaminhar");
       if (sel) sel.value = "";
@@ -756,18 +745,15 @@ async function saveEditModal() {
     encaminhar_user_id: (status === "PROGRAMACAO") ? ($("eEncaminhar")?.value || null) : null
   };
 
-  const { error } = await supabase
+  const { error } = await sb
     .from("demands")
     .update(payload)
     .eq("id", editingDemand.id);
 
-  if (error) {
-    setMsg($("editMsg"), error.message, "bad");
-    return;
-  }
+  if (error) return setMsg($("editMsg"), error.message, "bad");
 
   setMsg($("editMsg"), "Alterações salvas.", "ok");
-  $("modalEdit").classList.add("hidden");
+  $("modalEdit")?.classList.add("hidden");
   editingDemand = null;
 
   await loadDemandsPage(demandPage);
@@ -775,12 +761,13 @@ async function saveEditModal() {
 }
 
 // =========================
-// MANAGEMENT (mesmo do anterior, mantido)
+// GESTÃO (GESTOR)
 // =========================
 async function loadManage() {
   if (profile.role !== "GESTOR") return;
 
-  const { data: users, error: uerr } = await supabase
+  // usuários
+  const { data: users, error: uerr } = await sb
     .from("profiles")
     .select("user_id, login, full_name, role, status, created_at")
     .order("created_at", { ascending: false });
@@ -788,30 +775,48 @@ async function loadManage() {
   if (!uerr) {
     usersCache = users || usersCache;
     renderUsersManage(users || []);
+  } else {
+    const box = $("usersList");
+    if (box) box.innerHTML = `<div class="item"><div class="meta">Erro ao carregar usuários: ${escapeHtml(uerr.message)}</div></div>`;
   }
 
-  const { data: last5 } = await supabase
+  // top 5 últimas demandas
+  const { data: last5, error: lerr } = await sb
     .from("v_demands")
     .select("*")
     .order("created_at", { ascending: false })
     .limit(5);
 
-  renderSimpleDemandList($("top5last"), last5 || []);
-  await loadTop5ByStatus($("top5Status").value);
+  if (lerr) {
+    const c = $("top5last");
+    if (c) c.innerHTML = `<div class="item"><div class="meta">Erro: ${escapeHtml(lerr.message)}</div></div>`;
+  } else {
+    renderSimpleDemandList($("top5last"), last5 || []);
+  }
+
+  // top5 por status (select atual)
+  const st = $("top5Status")?.value || "ABERTURA";
+  await loadTop5ByStatus(st);
 }
 
 async function loadTop5ByStatus(status) {
-  const { data } = await supabase
+  const { data, error } = await sb
     .from("v_demands")
     .select("*")
     .eq("status", status)
     .order("created_at", { ascending: false })
     .limit(5);
 
+  if (error) {
+    const c = $("top5statusList");
+    if (c) c.innerHTML = `<div class="item"><div class="meta">Erro: ${escapeHtml(error.message)}</div></div>`;
+    return;
+  }
   renderSimpleDemandList($("top5statusList"), data || []);
 }
 
 function renderSimpleDemandList(container, list) {
+  if (!container) return;
   container.innerHTML = "";
   if (!list.length) {
     container.innerHTML = `<div class="item"><div class="meta">Sem itens.</div></div>`;
@@ -823,7 +828,11 @@ function renderSimpleDemandList(container, list) {
     div.className = "item";
     div.innerHTML = `
       <div><b>${escapeHtml(d.cliente)}</b> — ${escapeHtml(d.entidade)}</div>
-      <div class="meta">Status: <b>${escapeHtml(statusLabel(d.status))}</b> • Criado por: ${escapeHtml(d.created_by_name || "—")} • ${fmtDate(d.created_at)}</div>
+      <div class="meta">
+        Status: <b>${escapeHtml(statusLabel(d.status))}</b> •
+        Criado por: ${escapeHtml(d.created_by_name || "—")} •
+        ${fmtDate(d.created_at)}
+      </div>
     `;
     container.appendChild(div);
   });
@@ -831,6 +840,7 @@ function renderSimpleDemandList(container, list) {
 
 function renderUsersManage(users) {
   const box = $("usersList");
+  if (!box) return;
   box.innerHTML = "";
 
   if (!users.length) {
@@ -847,7 +857,9 @@ function renderUsersManage(users) {
       <div class="top">
         <div>
           <div><b>${escapeHtml(u.full_name)}</b> (${escapeHtml(u.role)})</div>
-          <div class="meta">login: ${escapeHtml(u.login || "—")} • status: <b>${escapeHtml(u.status)}</b> • ${fmtDate(u.created_at)}</div>
+          <div class="meta">
+            login: ${escapeHtml(u.login || "—")} • status: <b>${escapeHtml(u.status)}</b> • ${fmtDate(u.created_at)}
+          </div>
         </div>
         <div class="actions">
           ${canActivate ? `<button class="btn primary" data-act="activate" data-id="${u.user_id}">Ativar</button>` : ""}
@@ -863,24 +875,19 @@ function renderUsersManage(users) {
         const id = btn.dataset.id;
 
         if (act === "activate") {
-          const { error } = await supabase
-            .from("profiles")
-            .update({ status: "ATIVO" })
-            .eq("user_id", id);
+          const { error } = await sb.from("profiles").update({ status: "ATIVO" }).eq("user_id", id);
           if (error) return alert("Erro: " + error.message);
           await loadManage();
+          return;
         }
 
         if (act === "toggleRole") {
           const novo = prompt("Novo role (PROGRAMADOR, SUPORTE, GESTOR):", u.role);
           if (novo === null) return;
-          const role = novo.trim().toUpperCase();
-          if (!["PROGRAMADOR","SUPORTE","GESTOR"].includes(role)) return alert("Role inválido.");
+          const role = normalizeRole(novo);
+          if (!role) return alert("Role inválido.");
 
-          const { error } = await supabase
-            .from("profiles")
-            .update({ role })
-            .eq("user_id", id);
+          const { error } = await sb.from("profiles").update({ role }).eq("user_id", id);
           if (error) return alert("Erro: " + error.message);
           await loadManage();
         }
@@ -903,41 +910,45 @@ function bindEvents() {
 
       if (tab === "clients") await loadClients();
       if (tab === "demands") {
+        await loadUsersForEncaminhar();
         await loadDashboard();
         await loadDemandsPage(1);
       }
-      if (tab === "manage") await loadManage();
+      if (tab === "manage") {
+        await loadUsersForEncaminhar();
+        await loadManage();
+      }
     });
   });
 
   // Login
-  $("btnLogin").addEventListener("click", async () => {
+  $("btnLogin")?.addEventListener("click", async () => {
     setMsg($("loginMsg"), "");
-    const email = $("loginEmail").value.trim();
-    const password = $("loginPass").value;
+    const email = $("loginEmail")?.value.trim();
+    const password = $("loginPass")?.value;
     if (!email || !password) return setMsg($("loginMsg"), "Informe email e senha.", "warn");
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await sb.auth.signInWithPassword({ email, password });
     if (error) return setMsg($("loginMsg"), error.message, "bad");
     setMsg($("loginMsg"), "Login ok!", "ok");
     await boot();
   });
 
   // Register
-  $("btnRegister").addEventListener("click", async () => {
+  $("btnRegister")?.addEventListener("click", async () => {
     setMsg($("regMsg"), "");
-    const login = $("regLogin").value.trim();
-    const full_name = $("regName").value.trim();
-    const email = $("regEmail").value.trim();
-    const pass1 = $("regPass").value;
-    const pass2 = $("regPass2").value;
-    const role = $("regRole").value;
+    const login = $("regLogin")?.value.trim();
+    const full_name = $("regName")?.value.trim();
+    const email = $("regEmail")?.value.trim();
+    const pass1 = $("regPass")?.value;
+    const pass2 = $("regPass2")?.value;
+    const role = $("regRole")?.value;
 
     if (!full_name || !email || !pass1 || !pass2) return setMsg($("regMsg"), "Preencha os campos.", "warn");
     if (pass1 !== pass2) return setMsg($("regMsg"), "Senhas não conferem.", "bad");
     if (pass1.length < 6) return setMsg($("regMsg"), "Senha muito curta (mín 6).", "warn");
 
-    const { error } = await supabase.auth.signUp({
+    const { error } = await sb.auth.signUp({
       email,
       password: pass1,
       options: { data: { login, full_name, role } }
@@ -948,37 +959,18 @@ function bindEvents() {
   });
 
   // Logout
-  $("btnLogout").addEventListener("click", async () => {
-    await supabase.auth.signOut();
+  $("btnLogout")?.addEventListener("click", async () => {
+    await sb.auth.signOut();
     sessionUser = null;
     profile = null;
     showAuthUI();
   });
 
-  // Clients create
-  $("btnCreateClient").addEventListener("click", async () => {
-    setMsg($("clientsMsg"), "");
-    const payload = {
-      cliente: $("cCliente").value.trim(),
-      entidade: $("cEntidade").value.trim(),
-      tipo_entidade: $("cTipo").value,
-      estado: $("cEstado").value,
-      created_by: sessionUser.id
-    };
-    if (!payload.cliente || !payload.entidade) return setMsg($("clientsMsg"), "Cliente e Entidade são obrigatórios.", "warn");
+  // Refresh clients
+  $("btnRefreshClients")?.addEventListener("click", loadClients);
 
-    const { error } = await supabase.from("clients").insert(payload);
-    if (error) return setMsg($("clientsMsg"), error.message, "bad");
-
-    setMsg($("clientsMsg"), "Cliente salvo.", "ok");
-    $("cCliente").value = "";
-    $("cEntidade").value = "";
-    await loadClients();
-  });
-
-  $("btnRefreshClients").addEventListener("click", loadClients);
-
-  $("clientSearch").addEventListener("input", () => {
+  // Client search (client-side)
+  $("clientSearch")?.addEventListener("input", () => {
     const q = ($("clientSearch").value || "").toLowerCase().trim();
     if (!q) return renderClients(clientsCache);
     renderClients(clientsCache.filter(c => {
@@ -987,100 +979,120 @@ function bindEvents() {
     }));
   });
 
+  // Create client
+  $("btnCreateClient")?.addEventListener("click", async () => {
+    setMsg($("clientsMsg"), "");
+    const payload = {
+      cliente: $("cCliente")?.value.trim(),
+      entidade: $("cEntidade")?.value.trim(),
+      tipo_entidade: $("cTipo")?.value,
+      estado: $("cEstado")?.value,
+      created_by: sessionUser.id
+    };
+    if (!payload.cliente || !payload.entidade) return setMsg($("clientsMsg"), "Cliente e Entidade são obrigatórios.", "warn");
+
+    const { error } = await sb.from("clients").insert(payload);
+    if (error) return setMsg($("clientsMsg"), error.message, "bad");
+
+    setMsg($("clientsMsg"), "Cliente salvo.", "ok");
+    if ($("cCliente")) $("cCliente").value = "";
+    if ($("cEntidade")) $("cEntidade").value = "";
+    await loadClients();
+  });
+
   // Demand client select
-  $("dClientSelect").addEventListener("change", () => {
+  $("dClientSelect")?.addEventListener("change", () => {
     const opt = $("dClientSelect").selectedOptions[0];
     if (!opt || !opt.value) return resetDemandClientInfo();
     setDemandClientInfoFromOption(opt);
   });
 
   // Tag previews (criação)
-  $("dAssunto").addEventListener("input", () => renderTags($("assuntoPreview"), parseTags($("dAssunto").value)));
-  $("dCanal").addEventListener("input", () => renderTags($("canalPreview"), parseTags($("dCanal").value)));
+  $("dAssunto")?.addEventListener("input", () => renderTags($("assuntoPreview"), parseTags($("dAssunto").value)));
+  $("dCanal")?.addEventListener("input", () => renderTags($("canalPreview"), parseTags($("dCanal").value)));
 
   // Demand create
-  $("btnCreateDemand").addEventListener("click", async () => {
+  $("btnCreateDemand")?.addEventListener("click", async () => {
     setMsg($("demandsMsg"), "");
-    const client_id = $("dClientSelect").value;
+    const client_id = $("dClientSelect")?.value;
     if (!client_id) return setMsg($("demandsMsg"), "Selecione um cliente.", "warn");
 
-    const status = $("dStatus").value;
+    const status = $("dStatus")?.value || "ABERTURA";
     const isProg = status === "PROGRAMACAO";
 
     const payload = {
       client_id,
       created_by: sessionUser.id,
-      responsavel: $("dResponsavel").value.trim() || null,
-      assunto_tags: parseTags($("dAssunto").value),
-      atendimento: $("dAtendimento").value.trim() || null,
-      trello_link: $("dTrello").value.trim() || null,
-      email_codigo: $("dEmailCod").value.trim() || null,
-      canal_tags: parseTags($("dCanal").value),
+      responsavel: $("dResponsavel")?.value.trim() || null,
+      assunto_tags: parseTags($("dAssunto")?.value),
+      atendimento: $("dAtendimento")?.value.trim() || null,
+      trello_link: $("dTrello")?.value.trim() || null,
+      email_codigo: $("dEmailCod")?.value.trim() || null,
+      canal_tags: parseTags($("dCanal")?.value),
       status,
-      encaminhar_user_id: isProg ? ($("dEncaminhar").value || null) : null
+      encaminhar_user_id: isProg ? ($("dEncaminhar")?.value || null) : null
     };
 
-    const { error } = await supabase.from("demands").insert(payload);
+    const { error } = await sb.from("demands").insert(payload);
     if (error) return setMsg($("demandsMsg"), error.message, "bad");
 
     setMsg($("demandsMsg"), "Demanda salva.", "ok");
 
-    // limpar parte editável
-    $("dResponsavel").value = "";
-    $("dAssunto").value = "";
-    $("dAtendimento").value = "";
-    $("dTrello").value = "";
-    $("dEmailCod").value = "";
-    $("dCanal").value = "";
-    $("assuntoPreview").innerHTML = "";
-    $("canalPreview").innerHTML = "";
-    $("dStatus").value = "ABERTURA";
-    $("dEncaminhar").value = "";
-    $("encaminharBox").classList.add("hidden");
+    // limpar campos editáveis
+    if ($("dResponsavel")) $("dResponsavel").value = "";
+    if ($("dAssunto")) $("dAssunto").value = "";
+    if ($("dAtendimento")) $("dAtendimento").value = "";
+    if ($("dTrello")) $("dTrello").value = "";
+    if ($("dEmailCod")) $("dEmailCod").value = "";
+    if ($("dCanal")) $("dCanal").value = "";
+    if ($("assuntoPreview")) $("assuntoPreview").innerHTML = "";
+    if ($("canalPreview")) $("canalPreview").innerHTML = "";
+    if ($("dStatus")) $("dStatus").value = "ABERTURA";
+    if ($("dEncaminhar")) $("dEncaminhar").value = "";
+    $("encaminharBox")?.classList.add("hidden");
 
     await loadDemandsPage(1);
     await loadDashboard();
   });
 
-  $("btnRefreshDemands").addEventListener("click", async () => {
+  // Refresh demands/dashboard
+  $("btnRefreshDashboard")?.addEventListener("click", loadDashboard);
+  $("btnRefreshDemands")?.addEventListener("click", async () => {
     await loadDemandsPage(demandPage);
     await loadDashboard();
   });
 
-  // Dashboard refresh
-  $("btnRefreshDashboard").addEventListener("click", loadDashboard);
+  // Filters -> reset page 1
+  $("demandSearch")?.addEventListener("input", () => loadDemandsPage(1));
+  $("demandStatusFilter")?.addEventListener("change", () => loadDemandsPage(1));
+  $("filterMine")?.addEventListener("change", () => loadDemandsPage(1));
+  $("filterAssignedToMe")?.addEventListener("change", () => loadDemandsPage(1));
+  $("pageSize")?.addEventListener("change", () => loadDemandsPage(1));
 
-  // filtros: sempre resetar pra página 1
-  $("demandSearch").addEventListener("input", () => loadDemandsPage(1));
-  $("demandStatusFilter").addEventListener("change", () => loadDemandsPage(1));
-  $("filterMine").addEventListener("change", () => loadDemandsPage(1));
-  $("filterAssignedToMe").addEventListener("change", () => loadDemandsPage(1));
-  $("pageSize").addEventListener("change", () => loadDemandsPage(1));
-
-  // Paginação
-  $("btnPrev").addEventListener("click", () => loadDemandsPage(demandPage - 1));
-  $("btnNext").addEventListener("click", () => loadDemandsPage(demandPage + 1));
+  // Pager
+  $("btnPrev")?.addEventListener("click", () => loadDemandsPage(demandPage - 1));
+  $("btnNext")?.addEventListener("click", () => loadDemandsPage(demandPage + 1));
 
   // Modal comments close
-  $("btnCloseModal").addEventListener("click", () => $("modal").classList.add("hidden"));
-  $("modal").addEventListener("click", (e) => { if (e.target.id === "modal") $("modal").classList.add("hidden"); });
+  $("btnCloseModal")?.addEventListener("click", () => $("modal")?.classList.add("hidden"));
+  $("modal")?.addEventListener("click", (e) => { if (e.target.id === "modal") $("modal")?.classList.add("hidden"); });
 
   // Modal edit close/save
-  $("btnCloseEdit").addEventListener("click", () => {
-    $("modalEdit").classList.add("hidden");
+  $("btnCloseEdit")?.addEventListener("click", () => {
+    $("modalEdit")?.classList.add("hidden");
     editingDemand = null;
   });
-  $("modalEdit").addEventListener("click", (e) => {
+  $("modalEdit")?.addEventListener("click", (e) => {
     if (e.target.id === "modalEdit") {
-      $("modalEdit").classList.add("hidden");
+      $("modalEdit")?.classList.add("hidden");
       editingDemand = null;
     }
   });
-  $("btnSaveEdit").addEventListener("click", saveEditModal);
+  $("btnSaveEdit")?.addEventListener("click", saveEditModal);
 
   // Gestão
-  $("btnRefreshManage").addEventListener("click", loadManage);
-  $("top5Status").addEventListener("change", async () => loadTop5ByStatus($("top5Status").value));
+  $("btnRefreshManage")?.addEventListener("click", loadManage);
+  $("top5Status")?.addEventListener("change", async () => loadTop5ByStatus($("top5Status").value));
 }
 
 // =========================
@@ -1110,7 +1122,6 @@ async function boot() {
 
   applyRoleDefaultFilters();
 
-  // pré-carregar base
   await loadUsersForEncaminhar();
   await loadClients();
 
@@ -1121,14 +1132,15 @@ async function boot() {
   await loadDashboard();
   await loadDemandsPage(1);
 
-  if (profile.role === "GESTOR") await loadManage();
+  if (profile.role === "GESTOR") {
+    await loadManage();
+  }
 }
 
 bindEvents();
 
-supabase.auth.onAuthStateChange(async () => {
+sb.auth.onAuthStateChange(async () => {
   await boot();
 });
 
-// start
 boot();
