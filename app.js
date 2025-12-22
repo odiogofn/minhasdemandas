@@ -4,7 +4,6 @@
 const SUPABASE_URL = "https://dpbrwvtatufahxbwcyud.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRwYnJ3dnRhdHVmYWh4YndjeXVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0MTU1ODYsImV4cCI6MjA4MTk5MTU4Nn0.EAxDG7Lpt_4sldfGb22IGY0pjvc6ueOKbnnUi6QQa8c";
 
-// NÃO use "supabase" como nome de variável aqui
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // =========================
@@ -85,29 +84,19 @@ function isSupportOrManager() {
   return profile?.role === "SUPORTE" || profile?.role === "GESTOR";
 }
 
-// =========================
-// CRITICAL FIXES (LOGIN)
-// =========================
+function ensureButtonType() {
+  const btn = $("btnLogin");
+  if (btn && btn.tagName === "BUTTON") btn.setAttribute("type", "button");
+}
+
 function getLoginElements() {
   const emailEl = $("loginEmail");
   const passEl = $("loginPass");
   const btnEl = $("btnLogin");
   const msgEl = $("loginMsg");
-
-  // Se existir mais de 1 elemento com mesmo ID, o DOM fica inconsistente.
   const dupEmail = document.querySelectorAll("#loginEmail").length;
   const dupPass = document.querySelectorAll("#loginPass").length;
-
   return { emailEl, passEl, btnEl, msgEl, dupEmail, dupPass };
-}
-
-function ensureButtonType() {
-  // Se estiver dentro de <form>, button sem type pode submeter e recarregar,
-  // parecendo "não acontece nada".
-  const btn = $("btnLogin");
-  if (btn && btn.tagName === "BUTTON") {
-    btn.setAttribute("type", "button");
-  }
 }
 
 // =========================
@@ -119,12 +108,10 @@ let profile = null;
 let usersCache = [];
 let clientsCache = [];
 
-// Paginação
 let demandPage = 1;
 let demandPageSize = 10;
 let demandTotal = 0;
 
-// Modal edição
 let editingDemand = null;
 
 // =========================
@@ -156,14 +143,15 @@ function showAuthUI() {
   $("pageManage")?.classList.add("hidden");
   $("pendingBox")?.classList.add("hidden");
 
-  $("btnLogout")?.classList.add("hidden");
+  // tem dois btnLogout (nav e pending). os dois funcionam
+  document.querySelectorAll("#btnLogout").forEach(b => b.classList.add("hidden"));
   $("userBadge")?.classList.add("hidden");
 }
 
 function showAppUI() {
   $("pageAuth")?.classList.add("hidden");
   $("nav")?.classList.remove("hidden");
-  $("btnLogout")?.classList.remove("hidden");
+  document.querySelectorAll("#btnLogout").forEach(b => b.classList.remove("hidden"));
   $("userBadge")?.classList.remove("hidden");
 }
 
@@ -393,7 +381,7 @@ function renderClients(list) {
   box.innerHTML = "";
 
   if (!list.length) {
-    box.innerHTML = `<div class="item"><div class="meta">Sem clientes (ou você não tem permissão).</div></div>`;
+    box.innerHTML = `<div class="item"><div class="muted">Sem clientes (ou você não tem permissão).</div></div>`;
     return;
   }
 
@@ -404,7 +392,7 @@ function renderClients(list) {
       <div class="top">
         <div>
           <div><b>${escapeHtml(c.cliente)}</b> — ${escapeHtml(c.entidade)}</div>
-          <div class="meta">${escapeHtml(c.tipo_entidade)} • ${escapeHtml(c.estado)} • ${fmtDate(c.created_at)}</div>
+          <div class="muted">${escapeHtml(c.tipo_entidade)} • ${escapeHtml(c.estado)} • ${fmtDate(c.created_at)}</div>
         </div>
       </div>
     `;
@@ -437,7 +425,7 @@ function renderDemands(list) {
   box.innerHTML = "";
 
   if (!list.length) {
-    box.innerHTML = `<div class="item"><div class="meta">Sem demandas (ou você não tem permissão).</div></div>`;
+    box.innerHTML = `<div class="item"><div class="muted">Sem demandas (ou você não tem permissão).</div></div>`;
     return;
   }
 
@@ -453,7 +441,7 @@ function renderDemands(list) {
       <div class="top">
         <div>
           <div><b>${escapeHtml(d.cliente)}</b> — ${escapeHtml(d.entidade)}</div>
-          <div class="meta">
+          <div class="muted">
             ${escapeHtml(d.tipo_entidade)} • ${escapeHtml(d.estado)} •
             Status: <b>${escapeHtml(statusTxt)}</b> •
             Responsável: <b>${escapeHtml(d.responsavel || "—")}</b> •
@@ -462,21 +450,22 @@ function renderDemands(list) {
           </div>
 
           <div class="tags">${tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("")}</div>
-          ${d.encaminhar_name ? `<div class="meta">Encaminhado: <b>${escapeHtml(d.encaminhar_name)}</b></div>` : ""}
+          ${d.encaminhar_name ? `<div class="muted">Encaminhado: <b>${escapeHtml(d.encaminhar_name)}</b></div>` : ""}
         </div>
 
         <div class="actions">
-          <button class="btn ghost" data-act="comments" data-id="${d.id}">Atualizações</button>
+          <button class="btn ghost" data-act="comments" data-id="${d.id}" type="button">Atualizações</button>
           ${d.trello_link ? `<a class="btn ghost" href="${escapeAttr(d.trello_link)}" target="_blank" rel="noreferrer">Trello</a>` : ""}
-          ${canEdit ? `<button class="btn" data-act="edit" data-id="${d.id}">Editar</button>` : ""}
-          ${canEdit ? `<button class="btn danger" data-act="del" data-id="${d.id}">Excluir</button>` : ""}
+          ${canEdit ? `<button class="btn" data-act="edit" data-id="${d.id}" type="button">Editar</button>` : ""}
+          ${canEdit ? `<button class="btn danger" data-act="del" data-id="${d.id}" type="button">Excluir</button>` : ""}
         </div>
       </div>
     `;
     box.appendChild(div);
 
     div.querySelectorAll("button[data-act]").forEach(btn => {
-      btn.addEventListener("click", async () => {
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
         const act = btn.dataset.act;
         const id = btn.dataset.id;
 
@@ -499,25 +488,25 @@ function renderDemands(list) {
 // DEMAND FORM (CREATE)
 // =========================
 function resetDemandClientInfo() {
-  if ($("dCliente")) $("dCliente").value = "";
-  if ($("dEntidade")) $("dEntidade").value = "";
-  if ($("dTipo")) $("dTipo").value = "";
-  if ($("dEstado")) $("dEstado").value = "";
+  $("dCliente") && ($("dCliente").value = "");
+  $("dEntidade") && ($("dEntidade").value = "");
+  $("dTipo") && ($("dTipo").value = "");
+  $("dEstado") && ($("dEstado").value = "");
   $("dFields")?.classList.add("disabled");
 }
 
 function setDemandClientInfoFromOption(opt) {
-  if ($("dCliente")) $("dCliente").value = opt.dataset.cliente || "";
-  if ($("dEntidade")) $("dEntidade").value = opt.dataset.entidade || "";
-  if ($("dTipo")) $("dTipo").value = opt.dataset.tipo || "";
-  if ($("dEstado")) $("dEstado").value = opt.dataset.estado || "";
+  $("dCliente") && ($("dCliente").value = opt.dataset.cliente || "");
+  $("dEntidade") && ($("dEntidade").value = opt.dataset.entidade || "");
+  $("dTipo") && ($("dTipo").value = opt.dataset.tipo || "");
+  $("dEstado") && ($("dEstado").value = opt.dataset.estado || "");
   $("dFields")?.classList.remove("disabled");
 }
 
 function configureDemandFormByRole() {
   const canCreate = isSupportOrManager();
-  if ($("btnCreateDemand")) $("btnCreateDemand").disabled = !canCreate;
-  if ($("btnCreateClient")) $("btnCreateClient").disabled = !canCreate;
+  $("btnCreateDemand") && ($("btnCreateDemand").disabled = !canCreate);
+  $("btnCreateClient") && ($("btnCreateClient").disabled = !canCreate);
 
   $("encaminharBox")?.classList.toggle("hidden", true);
 
@@ -556,28 +545,28 @@ async function openCommentsModal(demandId) {
   if (!demand) return alert("Você não tem acesso a essa demanda.");
 
   $("modal")?.classList.remove("hidden");
-  if ($("modalTitle")) $("modalTitle").textContent = `Atualizações — ${demand.cliente} (${statusLabel(demand.status)})`;
+  $("modalTitle") && ($("modalTitle").textContent = `Atualizações — ${demand.cliente} (${statusLabel(demand.status)})`);
 
   const comments = await loadComments(demand.id);
   const body = $("modalBody");
   if (!body) return;
 
   body.innerHTML = `
-    <div class="block">
-      <div class="meta"><b>Atendimento:</b> ${escapeHtml(demand.atendimento || "—")}</div>
-      <div class="meta"><b>Responsável:</b> ${escapeHtml(demand.responsavel || "—")}</div>
-      <div class="meta"><b>Encaminhado:</b> ${escapeHtml(demand.encaminhar_name || "—")}</div>
+    <div class="card" style="margin:0 0 12px;">
+      <div class="muted"><b>Atendimento:</b> ${escapeHtml(demand.atendimento || "—")}</div>
+      <div class="muted"><b>Responsável:</b> ${escapeHtml(demand.responsavel || "—")}</div>
+      <div class="muted"><b>Encaminhado:</b> ${escapeHtml(demand.encaminhar_name || "—")}</div>
     </div>
 
-    <div class="block">
-      <h4>Escrever comentário</h4>
+    <div class="card" style="margin:0 0 12px;">
+      <h4 style="margin:0 0 8px;">Escrever comentário</h4>
       <textarea id="newComment" rows="3" placeholder="Digite uma atualização..."></textarea>
-      <button id="btnAddComment" class="btn primary" type="button">Comentar</button>
+      <button id="btnAddComment" class="btn primary" type="button" style="margin-top:10px;">Comentar</button>
       <p id="commentMsg" class="msg"></p>
     </div>
 
-    <div class="block">
-      <h4>Histórico</h4>
+    <div class="card" style="margin:0;">
+      <h4 style="margin:0 0 8px;">Histórico</h4>
       <div id="commentsList" class="list"></div>
     </div>
   `;
@@ -611,7 +600,7 @@ function renderCommentsList(container, comments) {
   container.innerHTML = "";
 
   if (!comments.length) {
-    container.innerHTML = `<div class="item"><div class="meta">Sem comentários.</div></div>`;
+    container.innerHTML = `<div class="item"><div class="muted">Sem comentários.</div></div>`;
     return;
   }
 
@@ -625,7 +614,7 @@ function renderCommentsList(container, comments) {
       <div class="top">
         <div>
           <div><b>${escapeHtml(author?.full_name || "Usuário")}</b></div>
-          <div class="meta">${fmtDate(c.created_at)}${c.updated_at && c.updated_at !== c.created_at ? " • editado " + fmtDate(c.updated_at) : ""}</div>
+          <div class="muted">${fmtDate(c.created_at)}${c.updated_at && c.updated_at !== c.created_at ? " • editado " + fmtDate(c.updated_at) : ""}</div>
         </div>
         <div class="actions">
           ${canManage ? `<button class="btn" data-act="editc" data-id="${c.id}" type="button">Editar</button>` : ""}
@@ -683,14 +672,14 @@ async function openEditModal(demandId) {
   editingDemand = d;
 
   $("modalEdit")?.classList.remove("hidden");
-  if ($("editTitle")) $("editTitle").textContent = `Editar — ${d.cliente} (${statusLabel(d.status)})`;
+  $("editTitle") && ($("editTitle").textContent = `Editar — ${d.cliente} (${statusLabel(d.status)})`);
   setMsg($("editMsg"), "");
 
   const body = $("editBody");
   if (!body) return;
 
   body.innerHTML = `
-    <div class="block">
+    <div class="card" style="margin:0 0 12px;">
       <div class="grid2">
         <div><label>Cliente (somente leitura)</label><input type="text" value="${escapeAttr(d.cliente)}" readonly /></div>
         <div><label>Entidade (somente leitura)</label><input type="text" value="${escapeAttr(d.entidade)}" readonly /></div>
@@ -699,7 +688,7 @@ async function openEditModal(demandId) {
       </div>
     </div>
 
-    <div class="block">
+    <div class="card" style="margin:0;">
       <div class="grid2">
         <div>
           <label>Responsável</label>
@@ -809,7 +798,7 @@ async function loadManage() {
     renderUsersManage(users || []);
   } else {
     const box = $("usersList");
-    if (box) box.innerHTML = `<div class="item"><div class="meta">Erro ao carregar usuários: ${escapeHtml(uerr.message)}</div></div>`;
+    if (box) box.innerHTML = `<div class="item"><div class="muted">Erro ao carregar usuários: ${escapeHtml(uerr.message)}</div></div>`;
   }
 
   const { data: last5, error: lerr } = await sb
@@ -820,7 +809,7 @@ async function loadManage() {
 
   if (lerr) {
     const c = $("top5last");
-    if (c) c.innerHTML = `<div class="item"><div class="meta">Erro: ${escapeHtml(lerr.message)}</div></div>`;
+    if (c) c.innerHTML = `<div class="item"><div class="muted">Erro: ${escapeHtml(lerr.message)}</div></div>`;
   } else {
     renderSimpleDemandList($("top5last"), last5 || []);
   }
@@ -839,7 +828,7 @@ async function loadTop5ByStatus(status) {
 
   if (error) {
     const c = $("top5statusList");
-    if (c) c.innerHTML = `<div class="item"><div class="meta">Erro: ${escapeHtml(error.message)}</div></div>`;
+    if (c) c.innerHTML = `<div class="item"><div class="muted">Erro: ${escapeHtml(error.message)}</div></div>`;
     return;
   }
   renderSimpleDemandList($("top5statusList"), data || []);
@@ -849,7 +838,7 @@ function renderSimpleDemandList(container, list) {
   if (!container) return;
   container.innerHTML = "";
   if (!list.length) {
-    container.innerHTML = `<div class="item"><div class="meta">Sem itens.</div></div>`;
+    container.innerHTML = `<div class="item"><div class="muted">Sem itens.</div></div>`;
     return;
   }
 
@@ -858,7 +847,7 @@ function renderSimpleDemandList(container, list) {
     div.className = "item";
     div.innerHTML = `
       <div><b>${escapeHtml(d.cliente)}</b> — ${escapeHtml(d.entidade)}</div>
-      <div class="meta">
+      <div class="muted">
         Status: <b>${escapeHtml(statusLabel(d.status))}</b> •
         Criado por: ${escapeHtml(d.created_by_name || "—")} •
         ${fmtDate(d.created_at)}
@@ -874,7 +863,7 @@ function renderUsersManage(users) {
   box.innerHTML = "";
 
   if (!users.length) {
-    box.innerHTML = `<div class="item"><div class="meta">Sem usuários.</div></div>`;
+    box.innerHTML = `<div class="item"><div class="muted">Sem usuários.</div></div>`;
     return;
   }
 
@@ -887,7 +876,7 @@ function renderUsersManage(users) {
       <div class="top">
         <div>
           <div><b>${escapeHtml(u.full_name)}</b> (${escapeHtml(u.role)})</div>
-          <div class="meta">
+          <div class="muted">
             login: ${escapeHtml(u.login || "—")} • status: <b>${escapeHtml(u.status)}</b> • ${fmtDate(u.created_at)}
           </div>
         </div>
@@ -953,10 +942,8 @@ function bindEvents() {
     });
   });
 
-  // Garantia extra: button type
+  // LOGIN
   ensureButtonType();
-
-  // LOGIN (fixo: sempre preventDefault, e valida duplicidade de IDs)
   $("btnLogin")?.addEventListener("click", async (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -969,7 +956,7 @@ function bindEvents() {
     }
 
     if (!emailEl || !passEl) {
-      setMsg(msgEl, "Campos de login não encontrados no HTML (IDs loginEmail/loginPass).", "bad");
+      setMsg(msgEl, "Campos de login não encontrados (IDs loginEmail/loginPass).", "bad");
       return;
     }
 
@@ -1018,13 +1005,15 @@ function bindEvents() {
     setMsg($("regMsg"), "Cadastro criado! Aguarde ativação do gestor.", "ok");
   });
 
-  // Logout
-  $("btnLogout")?.addEventListener("click", async (e) => {
-    e.preventDefault();
-    await sb.auth.signOut();
-    sessionUser = null;
-    profile = null;
-    showAuthUI();
+  // Logout (existem 2 botões com mesmo id no HTML → por isso aqui é querySelectorAll)
+  document.querySelectorAll("#btnLogout").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      await sb.auth.signOut();
+      sessionUser = null;
+      profile = null;
+      showAuthUI();
+    });
   });
 
   // Refresh clients
@@ -1049,7 +1038,7 @@ function bindEvents() {
       entidade: $("cEntidade")?.value.trim(),
       tipo_entidade: $("cTipo")?.value,
       estado: $("cEstado")?.value,
-      created_by: sessionUser.id
+      created_by: sessionUser?.id
     };
     if (!payload.cliente || !payload.entidade) return setMsg($("clientsMsg"), "Cliente e Entidade são obrigatórios.", "warn");
 
@@ -1101,16 +1090,16 @@ function bindEvents() {
 
     setMsg($("demandsMsg"), "Demanda salva.", "ok");
 
-    if ($("dResponsavel")) $("dResponsavel").value = "";
-    if ($("dAssunto")) $("dAssunto").value = "";
-    if ($("dAtendimento")) $("dAtendimento").value = "";
-    if ($("dTrello")) $("dTrello").value = "";
-    if ($("dEmailCod")) $("dEmailCod").value = "";
-    if ($("dCanal")) $("dCanal").value = "";
-    if ($("assuntoPreview")) $("assuntoPreview").innerHTML = "";
-    if ($("canalPreview")) $("canalPreview").innerHTML = "";
-    if ($("dStatus")) $("dStatus").value = "ABERTURA";
-    if ($("dEncaminhar")) $("dEncaminhar").value = "";
+    $("dResponsavel") && ($("dResponsavel").value = "");
+    $("dAssunto") && ($("dAssunto").value = "");
+    $("dAtendimento") && ($("dAtendimento").value = "");
+    $("dTrello") && ($("dTrello").value = "");
+    $("dEmailCod") && ($("dEmailCod").value = "");
+    $("dCanal") && ($("dCanal").value = "");
+    $("assuntoPreview") && ($("assuntoPreview").innerHTML = "");
+    $("canalPreview") && ($("canalPreview").innerHTML = "");
+    $("dStatus") && ($("dStatus").value = "ABERTURA");
+    $("dEncaminhar") && ($("dEncaminhar").value = "");
     $("encaminharBox")?.classList.add("hidden");
 
     await loadDemandsPage(1);
@@ -1160,7 +1149,7 @@ function bindEvents() {
 }
 
 // =========================
-// BOOT (AJUSTADO)
+// BOOT
 // =========================
 async function boot() {
   await loadSession();
@@ -1172,9 +1161,8 @@ async function boot() {
 
   profile = await fetchMyProfile();
   if (!profile) {
-    // AJUSTE: deixa claro que o auth ok mas profile faltando/RLS
     showAuthUI();
-    setMsg($("loginMsg"), "⚠️ Login OK, mas não achei seu perfil em public.profiles. Verifique trigger de criação do profile/RLS.", "bad");
+    setMsg($("loginMsg"), "⚠️ Login OK, mas não achei seu perfil em public.profiles (trigger/RLS).", "bad");
     return;
   }
 
@@ -1192,7 +1180,6 @@ async function boot() {
 
   configureDemandFormByRole();
 
-  // abre por padrão demandas
   activateTab("demands");
   await loadDashboard();
   await loadDemandsPage(1);
@@ -1203,17 +1190,23 @@ async function boot() {
 }
 
 // =========================
-// STARTUP (FIXO)
+// STARTUP (ANTI-DUPLICATE INIT)
 // =========================
-window.addEventListener("DOMContentLoaded", () => {
-  console.log("✅ DOM pronto - iniciando app");
-  ensureButtonType();
-  bindEvents();
+if (!window.__TASKSYS_INIT__) {
+  window.__TASKSYS_INIT__ = true;
 
-  sb.auth.onAuthStateChange(async () => {
-    console.log("🔁 auth state change");
-    await boot();
+  window.addEventListener("DOMContentLoaded", () => {
+    console.log("✅ DOM pronto - iniciando app (único)");
+    ensureButtonType();
+    bindEvents();
+
+    sb.auth.onAuthStateChange(async (event) => {
+      console.log("🔁 auth state change:", event);
+      await boot();
+    });
+
+    boot();
   });
-
-  boot();
-});
+} else {
+  console.warn("⚠️ app.js tentou inicializar 2x (bloqueado por __TASKSYS_INIT__)");
+}
