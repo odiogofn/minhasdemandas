@@ -1,3 +1,5 @@
+window.__APP_LOADED = true;
+console.log("✅ app.js carregou");
 // =========================
 // CONFIG (SUAS KEYS)
 // =========================
@@ -1144,3 +1146,4 @@ sb.auth.onAuthStateChange(async () => {
 });
 
 boot();
+
