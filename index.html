@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sistema de Tarefas</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">🧩 Sistema de Tarefas</div>
+    <div class="right">
+      <span id="userBadge" class="badge hidden"></span>
+      <button id="btnLogout" class="btn ghost hidden">Sair</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- PAGE 0 - LOGIN/CADASTRO -->
+    <section id="pageAuth" class="card">
+      <h2>Página 0 — Acesso / Cadastro</h2>
+
+      <div class="grid2">
+        <div>
+          <h3>Login</h3>
+          <label>Email</label>
+          <input id="loginEmail" type="email" placeholder="seuemail@dominio.com" />
+          <label>Senha</label>
+          <input id="loginPass" type="password" placeholder="••••••••" />
+          <button id="btnLogin" class="btn primary">Entrar</button>
+          <p id="loginMsg" class="msg"></p>
+        </div>
+
+        <div>
+          <h3>Cadastro (fica PENDENTE até gestor ativar)</h3>
+
+          <label>Login (apelido)</label>
+          <input id="regLogin" type="text" placeholder="ex: diogo" />
+
+          <label>Nome e sobrenome</label>
+          <input id="regName" type="text" placeholder="Ex: Diogo Fernandes" />
+
+          <label>Email</label>
+          <input id="regEmail" type="email" placeholder="seuemail@dominio.com" />
+
+          <label>Senha</label>
+          <input id="regPass" type="password" placeholder="••••••••" />
+
+          <label>Confirmar senha</label>
+          <input id="regPass2" type="password" placeholder="••••••••" />
+
+          <label>Perfil</label>
+          <select id="regRole">
+            <option value="SUPORTE">SUPORTE</option>
+            <option value="PROGRAMADOR">PROGRAMADOR</option>
+            <option value="GESTOR">GESTOR</option>
+          </select>
+
+          <button id="btnRegister" class="btn">Cadastrar</button>
+          <p id="regMsg" class="msg"></p>
+        </div>
+      </div>
+
+      <div class="note">
+        <b>Regras:</b>
+        <ul>
+          <li><b>PROGRAMADOR</b>: só vê demandas encaminhadas para ele + comentários nelas.</li>
+          <li><b>SUPORTE</b>: cadastra clientes e demandas; edita/exclui apenas demandas criadas por ele; demandas dos outros = só leitura.</li>
+          <li><b>GESTOR</b>: tudo do suporte + página de gestão (ativa usuários etc.).</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- NAV -->
+    <nav id="nav" class="tabs hidden">
+      <button class="tab" data-tab="clients">Página 1 — Clientes</button>
+      <button class="tab" data-tab="demands">Página 2 — Demandas</button>
+      <button class="tab" data-tab="manage">Página 3 — Gestão</button>
+    </nav>
+
+    <!-- BLOQUEIO PENDENTE -->
+    <section id="pendingBox" class="card hidden">
+      <h2>Seu acesso está PENDENTE</h2>
+      <p>Um gestor precisa ativar seu usuário para você usar o sistema.</p>
+      <p class="muted">Se você for o primeiro gestor, ative seu status manualmente na tabela <b>profiles</b> (status = ATIVO).</p>
+    </section>
+
+    <!-- PAGE 1 - CLIENTES -->
+    <section id="pageClients" class="card hidden">
+      <h2>Página 1 — Cadastro de Clientes</h2>
+
+      <div class="toolbar">
+        <button id="btnRefreshClients" class="btn ghost">Atualizar</button>
+      </div>
+
+      <div id="clientForm" class="block">
+        <h3>Novo cliente</h3>
+        <div class="grid2">
+          <div>
+            <label>Cliente</label>
+            <input id="cCliente" type="text" placeholder="Ex: Prefeitura X" />
+          </div>
+          <div>
+            <label>Entidade</label>
+            <input id="cEntidade" type="text" placeholder="Ex: Câmara Municipal..." />
+          </div>
+          <div>
+            <label>Tipo Entidade</label>
+            <select id="cTipo">
+              <option value="CM">CM</option>
+              <option value="PM">PM</option>
+              <option value="CONSORCIO">CONSORCIO</option>
+              <option value="AUTARQUIA">AUTARQUIA</option>
+              <option value="INSTITUTO">INSTITUTO</option>
+            </select>
+          </div>
+          <div>
+            <label>Estado</label>
+            <select id="cEstado">
+              <option value="CE">CE</option>
+              <option value="MA">MA</option>
+              <option value="RN">RN</option>
+              <option value="AP">AP</option>
+              <option value="PA">PA</option>
+            </select>
+          </div>
+        </div>
+        <button id="btnCreateClient" class="btn primary">Salvar cliente</button>
+        <p id="clientsMsg" class="msg"></p>
+      </div>
+
+      <h3>Lista de clientes</h3>
+      <input id="clientSearch" class="search" placeholder="Filtrar por cliente/entidade/estado..." />
+      <div id="clientsList" class="list"></div>
+    </section>
+
+    <!-- PAGE 2 - DEMANDAS -->
+    <section id="pageDemands" class="card hidden">
+      <h2>Página 2 — Demandas</h2>
+
+      <!-- DASHBOARD -->
+      <div class="block">
+        <div class="dash-head">
+          <h3 style="margin:0;">Dashboard</h3>
+          <div class="dash-actions">
+            <button id="btnRefreshDashboard" class="btn ghost">Atualizar dashboard</button>
+          </div>
+        </div>
+
+        <div class="dash-grid">
+          <div class="dash-card">
+            <div class="dash-title">Por Status</div>
+            <div id="dashStatus" class="dash-row"></div>
+          </div>
+
+          <div class="dash-card">
+            <div class="dash-title">Por Responsável (Top)</div>
+            <div id="dashResp" class="dash-col"></div>
+          </div>
+        </div>
+
+        <p id="dashMsg" class="msg"></p>
+      </div>
+
+      <div class="toolbar">
+        <button id="btnRefreshDemands" class="btn ghost">Atualizar lista</button>
+      </div>
+
+      <!-- FORM NOVA DEMANDA -->
+      <div class="block">
+        <h3>Nova demanda</h3>
+
+        <label>Localize o cliente</label>
+        <select id="dClientSelect">
+          <option value="">— selecione —</option>
+        </select>
+
+        <div class="grid2">
+          <div>
+            <label>Cliente</label>
+            <input id="dCliente" type="text" readonly />
+          </div>
+          <div>
+            <label>Entidade</label>
+            <input id="dEntidade" type="text" readonly />
+          </div>
+          <div>
+            <label>Tipo Entidade</label>
+            <input id="dTipo" type="text" readonly />
+          </div>
+          <div>
+            <label>Estado</label>
+            <input id="dEstado" type="text" readonly />
+          </div>
+        </div>
+
+        <div id="dFields" class="disabled">
+          <div class="grid2">
+            <div>
+              <label>Responsável</label>
+              <input id="dResponsavel" type="text" placeholder="Ex: Fulano" />
+            </div>
+            <div>
+              <label>Status</label>
+              <select id="dStatus">
+                <option value="ABERTURA">ABERTURA</option>
+                <option value="PROGRAMACAO">PROGRAMAÇÃO</option>
+                <option value="EM_ANALISE">EM ANÁLISE</option>
+                <option value="CONCLUIDO">CONCLUÍDO</option>
+              </select>
+            </div>
+          </div>
+
+          <label>Assunto (separe por vírgula, vira TAG)</label>
+          <input id="dAssunto" type="text" placeholder="ex: eSocial, S-2200, relatório" />
+          <div id="assuntoPreview" class="tags"></div>
+
+          <label>Atendimento (texto)</label>
+          <textarea id="dAtendimento" rows="4" placeholder="Descreva o atendimento..."></textarea>
+
+          <div class="grid2">
+            <div>
+              <label>Trello (link)</label>
+              <input id="dTrello" type="url" placeholder="https://trello.com/..." />
+            </div>
+            <div>
+              <label>Email (código)</label>
+              <input id="dEmailCod" type="text" placeholder="ex: 2025-000123" />
+            </div>
+          </div>
+
+          <label>Canal de Atendimento (separe por vírgula, vira TAG)</label>
+          <input id="dCanal" type="text" placeholder="ex: WhatsApp, Telefone, Presencial" />
+          <div id="canalPreview" class="tags"></div>
+
+          <div id="encaminharBox" class="hidden">
+            <label>Encaminhar (usuários)</label>
+            <select id="dEncaminhar">
+              <option value="">— selecione —</option>
+            </select>
+          </div>
+
+          <button id="btnCreateDemand" class="btn primary">Salvar demanda</button>
+          <p id="demandsMsg" class="msg"></p>
+        </div>
+      </div>
+
+      <!-- FILTROS + PAGINAÇÃO -->
+      <h3>Lista de demandas</h3>
+
+      <div class="filters">
+        <div class="grid2">
+          <input id="demandSearch" class="search" placeholder="Buscar por cliente/entidade/atendimento/responsável/email..." />
+          <select id="demandStatusFilter">
+            <option value="">Todos status</option>
+            <option value="ABERTURA">ABERTURA</option>
+            <option value="PROGRAMACAO">PROGRAMAÇÃO</option>
+            <option value="EM_ANALISE">EM ANÁLISE</option>
+            <option value="CONCLUIDO">CONCLUÍDO</option>
+          </select>
+        </div>
+
+        <div class="filter-row">
+          <label class="check">
+            <input type="checkbox" id="filterMine" />
+            <span>Minhas demandas (SUPORTE)</span>
+          </label>
+
+          <label class="check">
+            <input type="checkbox" id="filterAssignedToMe" />
+            <span>Encaminhadas a mim (PROGRAMADOR)</span>
+          </label>
+
+          <select id="pageSize">
+            <option value="10">10 por página</option>
+            <option value="20">20 por página</option>
+            <option value="50">50 por página</option>
+          </select>
+        </div>
+
+        <div class="pager">
+          <button id="btnPrev" class="btn ghost">◀ Anterior</button>
+          <div class="pager-info" id="pagerInfo">Página 1</div>
+          <button id="btnNext" class="btn ghost">Próxima ▶</button>
+        </div>
+      </div>
+
+      <div id="demandsList" class="list"></div>
+
+      <!-- MODAL: EDIÇÃO DE DEMANDA -->
+      <div id="modalEdit" class="modal hidden">
+        <div class="modal-content">
+          <div class="modal-head">
+            <h3 id="editTitle">Editar Demanda</h3>
+            <button id="btnCloseEdit" class="btn ghost">Fechar</button>
+          </div>
+
+          <div id="editBody"></div>
+          <p id="editMsg" class="msg"></p>
+
+          <div class="modal-foot">
+            <button id="btnSaveEdit" class="btn primary">Salvar alterações</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL: COMENTÁRIOS -->
+      <div id="modal" class="modal hidden">
+        <div class="modal-content">
+          <div class="modal-head">
+            <h3 id="modalTitle">Atualizações</h3>
+            <button id="btnCloseModal" class="btn ghost">Fechar</button>
+          </div>
+          <div id="modalBody"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE 3 - GESTÃO -->
+    <section id="pageManage" class="card hidden">
+      <h2>Página 3 — Gestão do Sistema (somente GESTOR)</h2>
+
+      <div class="toolbar">
+        <button id="btnRefreshManage" class="btn ghost">Atualizar</button>
+      </div>
+
+      <div class="block">
+        <h3>Usuários cadastrados</h3>
+        <div id="usersList" class="list"></div>
+      </div>
+
+      <div class="block">
+        <h3>Top 5 últimas demandas cadastradas</h3>
+        <div id="top5last" class="list"></div>
+      </div>
+
+      <div class="block">
+        <h3>Top 5 por status</h3>
+        <select id="top5Status">
+          <option value="ABERTURA">ABERTURA</option>
+          <option value="PROGRAMACAO">PROGRAMAÇÃO</option>
+          <option value="EM_ANALISE">EM ANÁLISE</option>
+          <option value="CONCLUIDO">CONCLUÍDO</option>
+        </select>
+        <div id="top5statusList" class="list"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
