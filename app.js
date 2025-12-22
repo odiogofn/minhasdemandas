@@ -4,8 +4,14 @@
 const SUPABASE_URL = "https://dpbrwvtatufahxbwcyud.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRwYnJ3dnRhdHVmYWh4YndjeXVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0MTU1ODYsImV4cCI6MjA4MTk5MTU4Nn0.EAxDG7Lpt_4sldfGb22IGY0pjvc6ueOKbnnUi6QQa8c";
 
-// NÃO use "supabase" como nome de variável aqui (a lib já expõe window.supabase)
+// NÃO use "supabase" como nome de variável aqui
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// =========================
+// BOOTSTRAP FLAGS
+// =========================
+window.__APP_LOADED = true;
+console.log("✅ app.js carregou");
 
 // =========================
 // HELPERS
@@ -77,6 +83,31 @@ function normalizeRole(role) {
 
 function isSupportOrManager() {
   return profile?.role === "SUPORTE" || profile?.role === "GESTOR";
+}
+
+// =========================
+// CRITICAL FIXES (LOGIN)
+// =========================
+function getLoginElements() {
+  const emailEl = $("loginEmail");
+  const passEl = $("loginPass");
+  const btnEl = $("btnLogin");
+  const msgEl = $("loginMsg");
+
+  // Se existir mais de 1 elemento com mesmo ID, o DOM fica inconsistente.
+  const dupEmail = document.querySelectorAll("#loginEmail").length;
+  const dupPass = document.querySelectorAll("#loginPass").length;
+
+  return { emailEl, passEl, btnEl, msgEl, dupEmail, dupPass };
+}
+
+function ensureButtonType() {
+  // Se estiver dentro de <form>, button sem type pode submeter e recarregar,
+  // parecendo "não acontece nada".
+  const btn = $("btnLogin");
+  if (btn && btn.tagName === "BUTTON") {
+    btn.setAttribute("type", "button");
+  }
 }
 
 // =========================
@@ -183,7 +214,6 @@ async function loadUsersForEncaminhar() {
   if (error) { usersCache = []; return; }
   usersCache = data || [];
 
-  // Select de encaminhar no cadastro de demanda
   const sel = $("dEncaminhar");
   if (sel) {
     sel.innerHTML = `<option value="">— selecione —</option>`;
@@ -214,7 +244,7 @@ async function loadClients() {
 }
 
 // =========================
-// DEMANDS: FILTERS + PAGINATION (server-side)
+// DEMANDS: FILTERS + PAGINATION
 // =========================
 function getDemandFilters() {
   const q = ($("demandSearch")?.value || "").trim();
@@ -542,7 +572,7 @@ async function openCommentsModal(demandId) {
     <div class="block">
       <h4>Escrever comentário</h4>
       <textarea id="newComment" rows="3" placeholder="Digite uma atualização..."></textarea>
-      <button id="btnAddComment" class="btn primary">Comentar</button>
+      <button id="btnAddComment" class="btn primary" type="button">Comentar</button>
       <p id="commentMsg" class="msg"></p>
     </div>
 
@@ -555,7 +585,8 @@ async function openCommentsModal(demandId) {
   const listBox = document.getElementById("commentsList");
   renderCommentsList(listBox, comments);
 
-  document.getElementById("btnAddComment").addEventListener("click", async () => {
+  document.getElementById("btnAddComment").addEventListener("click", async (e) => {
+    e.preventDefault();
     const content = (document.getElementById("newComment").value || "").trim();
     if (!content) return setMsg(document.getElementById("commentMsg"), "Digite algo.", "warn");
 
@@ -597,8 +628,8 @@ function renderCommentsList(container, comments) {
           <div class="meta">${fmtDate(c.created_at)}${c.updated_at && c.updated_at !== c.created_at ? " • editado " + fmtDate(c.updated_at) : ""}</div>
         </div>
         <div class="actions">
-          ${canManage ? `<button class="btn" data-act="editc" data-id="${c.id}">Editar</button>` : ""}
-          ${canManage ? `<button class="btn danger" data-act="delc" data-id="${c.id}">Excluir</button>` : ""}
+          ${canManage ? `<button class="btn" data-act="editc" data-id="${c.id}" type="button">Editar</button>` : ""}
+          ${canManage ? `<button class="btn danger" data-act="delc" data-id="${c.id}" type="button">Excluir</button>` : ""}
         </div>
       </div>
       <div style="margin-top:10px; white-space:pre-wrap;">${escapeHtml(c.content)}</div>
@@ -606,7 +637,8 @@ function renderCommentsList(container, comments) {
     container.appendChild(div);
 
     div.querySelectorAll("button[data-act]").forEach(btn => {
-      btn.addEventListener("click", async () => {
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
         const act = btn.dataset.act;
         const id = btn.dataset.id;
 
@@ -632,7 +664,7 @@ function renderCommentsList(container, comments) {
 }
 
 // =========================
-// EDIT MODAL (EDIÇÃO COMPLETA)
+// EDIT MODAL
 // =========================
 function usersOptionsHtml(selectedId) {
   const activeUsers = usersCache.filter(u => u.status === "ATIVO");
@@ -730,7 +762,8 @@ async function openEditModal(demandId) {
   });
 }
 
-async function saveEditModal() {
+async function saveEditModal(e) {
+  if (e?.preventDefault) e.preventDefault();
   if (!editingDemand) return;
 
   const status = $("eStatus").value;
@@ -766,7 +799,6 @@ async function saveEditModal() {
 async function loadManage() {
   if (profile.role !== "GESTOR") return;
 
-  // usuários
   const { data: users, error: uerr } = await sb
     .from("profiles")
     .select("user_id, login, full_name, role, status, created_at")
@@ -780,7 +812,6 @@ async function loadManage() {
     if (box) box.innerHTML = `<div class="item"><div class="meta">Erro ao carregar usuários: ${escapeHtml(uerr.message)}</div></div>`;
   }
 
-  // top 5 últimas demandas
   const { data: last5, error: lerr } = await sb
     .from("v_demands")
     .select("*")
@@ -794,7 +825,6 @@ async function loadManage() {
     renderSimpleDemandList($("top5last"), last5 || []);
   }
 
-  // top5 por status (select atual)
   const st = $("top5Status")?.value || "ABERTURA";
   await loadTop5ByStatus(st);
 }
@@ -862,15 +892,16 @@ function renderUsersManage(users) {
           </div>
         </div>
         <div class="actions">
-          ${canActivate ? `<button class="btn primary" data-act="activate" data-id="${u.user_id}">Ativar</button>` : ""}
-          <button class="btn" data-act="toggleRole" data-id="${u.user_id}">Trocar perfil</button>
+          ${canActivate ? `<button class="btn primary" data-act="activate" data-id="${u.user_id}" type="button">Ativar</button>` : ""}
+          <button class="btn" data-act="toggleRole" data-id="${u.user_id}" type="button">Trocar perfil</button>
         </div>
       </div>
     `;
     box.appendChild(div);
 
     div.querySelectorAll("button[data-act]").forEach(btn => {
-      btn.addEventListener("click", async () => {
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
         const act = btn.dataset.act;
         const id = btn.dataset.id;
 
@@ -902,7 +933,8 @@ function renderUsersManage(users) {
 function bindEvents() {
   // Tabs
   document.querySelectorAll(".tab").forEach(btn => {
-    btn.addEventListener("click", async () => {
+    btn.addEventListener("click", async (e) => {
+      e.preventDefault();
       const tab = btn.dataset.tab;
       if (tab === "manage" && profile.role !== "GESTOR") return;
 
@@ -921,21 +953,49 @@ function bindEvents() {
     });
   });
 
-  // Login
-  $("btnLogin")?.addEventListener("click", async () => {
-    setMsg($("loginMsg"), "");
-    const email = $("loginEmail")?.value.trim();
-    const password = $("loginPass")?.value;
-    if (!email || !password) return setMsg($("loginMsg"), "Informe email e senha.", "warn");
+  // Garantia extra: button type
+  ensureButtonType();
+
+  // LOGIN (fixo: sempre preventDefault, e valida duplicidade de IDs)
+  $("btnLogin")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const { emailEl, passEl, msgEl, dupEmail, dupPass } = getLoginElements();
+
+    if (dupEmail > 1 || dupPass > 1) {
+      setMsg(msgEl, `Existe ID duplicado no HTML (loginEmail:${dupEmail}, loginPass:${dupPass}). Remova duplicados.`, "bad");
+      return;
+    }
+
+    if (!emailEl || !passEl) {
+      setMsg(msgEl, "Campos de login não encontrados no HTML (IDs loginEmail/loginPass).", "bad");
+      return;
+    }
+
+    const email = (emailEl.value || "").trim();
+    const password = passEl.value || "";
+
+    if (!email || !password) {
+      setMsg(msgEl, "Informe email e senha.", "warn");
+      return;
+    }
+
+    setMsg(msgEl, "Autenticando...", "info");
 
     const { error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) return setMsg($("loginMsg"), error.message, "bad");
-    setMsg($("loginMsg"), "Login ok!", "ok");
+    if (error) {
+      setMsg(msgEl, error.message, "bad");
+      return;
+    }
+
+    setMsg(msgEl, "Login ok!", "ok");
     await boot();
   });
 
   // Register
-  $("btnRegister")?.addEventListener("click", async () => {
+  $("btnRegister")?.addEventListener("click", async (e) => {
+    e.preventDefault();
     setMsg($("regMsg"), "");
     const login = $("regLogin")?.value.trim();
     const full_name = $("regName")?.value.trim();
@@ -959,7 +1019,8 @@ function bindEvents() {
   });
 
   // Logout
-  $("btnLogout")?.addEventListener("click", async () => {
+  $("btnLogout")?.addEventListener("click", async (e) => {
+    e.preventDefault();
     await sb.auth.signOut();
     sessionUser = null;
     profile = null;
@@ -967,9 +1028,9 @@ function bindEvents() {
   });
 
   // Refresh clients
-  $("btnRefreshClients")?.addEventListener("click", loadClients);
+  $("btnRefreshClients")?.addEventListener("click", (e) => { e.preventDefault(); loadClients(); });
 
-  // Client search (client-side)
+  // Client search
   $("clientSearch")?.addEventListener("input", () => {
     const q = ($("clientSearch").value || "").toLowerCase().trim();
     if (!q) return renderClients(clientsCache);
@@ -980,7 +1041,8 @@ function bindEvents() {
   });
 
   // Create client
-  $("btnCreateClient")?.addEventListener("click", async () => {
+  $("btnCreateClient")?.addEventListener("click", async (e) => {
+    e.preventDefault();
     setMsg($("clientsMsg"), "");
     const payload = {
       cliente: $("cCliente")?.value.trim(),
@@ -1012,7 +1074,8 @@ function bindEvents() {
   $("dCanal")?.addEventListener("input", () => renderTags($("canalPreview"), parseTags($("dCanal").value)));
 
   // Demand create
-  $("btnCreateDemand")?.addEventListener("click", async () => {
+  $("btnCreateDemand")?.addEventListener("click", async (e) => {
+    e.preventDefault();
     setMsg($("demandsMsg"), "");
     const client_id = $("dClientSelect")?.value;
     if (!client_id) return setMsg($("demandsMsg"), "Selecione um cliente.", "warn");
@@ -1038,7 +1101,6 @@ function bindEvents() {
 
     setMsg($("demandsMsg"), "Demanda salva.", "ok");
 
-    // limpar campos editáveis
     if ($("dResponsavel")) $("dResponsavel").value = "";
     if ($("dAssunto")) $("dAssunto").value = "";
     if ($("dAtendimento")) $("dAtendimento").value = "";
@@ -1056,13 +1118,14 @@ function bindEvents() {
   });
 
   // Refresh demands/dashboard
-  $("btnRefreshDashboard")?.addEventListener("click", loadDashboard);
-  $("btnRefreshDemands")?.addEventListener("click", async () => {
+  $("btnRefreshDashboard")?.addEventListener("click", (e) => { e.preventDefault(); loadDashboard(); });
+  $("btnRefreshDemands")?.addEventListener("click", async (e) => {
+    e.preventDefault();
     await loadDemandsPage(demandPage);
     await loadDashboard();
   });
 
-  // Filters -> reset page 1
+  // Filters
   $("demandSearch")?.addEventListener("input", () => loadDemandsPage(1));
   $("demandStatusFilter")?.addEventListener("change", () => loadDemandsPage(1));
   $("filterMine")?.addEventListener("change", () => loadDemandsPage(1));
@@ -1070,15 +1133,16 @@ function bindEvents() {
   $("pageSize")?.addEventListener("change", () => loadDemandsPage(1));
 
   // Pager
-  $("btnPrev")?.addEventListener("click", () => loadDemandsPage(demandPage - 1));
-  $("btnNext")?.addEventListener("click", () => loadDemandsPage(demandPage + 1));
+  $("btnPrev")?.addEventListener("click", (e) => { e.preventDefault(); loadDemandsPage(demandPage - 1); });
+  $("btnNext")?.addEventListener("click", (e) => { e.preventDefault(); loadDemandsPage(demandPage + 1); });
 
   // Modal comments close
-  $("btnCloseModal")?.addEventListener("click", () => $("modal")?.classList.add("hidden"));
+  $("btnCloseModal")?.addEventListener("click", (e) => { e.preventDefault(); $("modal")?.classList.add("hidden"); });
   $("modal")?.addEventListener("click", (e) => { if (e.target.id === "modal") $("modal")?.classList.add("hidden"); });
 
   // Modal edit close/save
-  $("btnCloseEdit")?.addEventListener("click", () => {
+  $("btnCloseEdit")?.addEventListener("click", (e) => {
+    e.preventDefault();
     $("modalEdit")?.classList.add("hidden");
     editingDemand = null;
   });
@@ -1091,12 +1155,12 @@ function bindEvents() {
   $("btnSaveEdit")?.addEventListener("click", saveEditModal);
 
   // Gestão
-  $("btnRefreshManage")?.addEventListener("click", loadManage);
+  $("btnRefreshManage")?.addEventListener("click", (e) => { e.preventDefault(); loadManage(); });
   $("top5Status")?.addEventListener("change", async () => loadTop5ByStatus($("top5Status").value));
 }
 
 // =========================
-// BOOT
+// BOOT (AJUSTADO)
 // =========================
 async function boot() {
   await loadSession();
@@ -1108,8 +1172,9 @@ async function boot() {
 
   profile = await fetchMyProfile();
   if (!profile) {
+    // AJUSTE: deixa claro que o auth ok mas profile faltando/RLS
     showAuthUI();
-    setMsg($("loginMsg"), "Perfil ainda não encontrado. Refaça login.", "warn");
+    setMsg($("loginMsg"), "⚠️ Login OK, mas não achei seu perfil em public.profiles. Verifique trigger de criação do profile/RLS.", "bad");
     return;
   }
 
@@ -1137,12 +1202,18 @@ async function boot() {
   }
 }
 
-bindEvents();
+// =========================
+// STARTUP (FIXO)
+// =========================
+window.addEventListener("DOMContentLoaded", () => {
+  console.log("✅ DOM pronto - iniciando app");
+  ensureButtonType();
+  bindEvents();
 
-sb.auth.onAuthStateChange(async () => {
-  await boot();
+  sb.auth.onAuthStateChange(async () => {
+    console.log("🔁 auth state change");
+    await boot();
+  });
+
+  boot();
 });
-
-boot();
-
-
