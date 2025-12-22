@@ -6,9 +6,6 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// =========================
-// BOOTSTRAP FLAGS
-// =========================
 window.__APP_LOADED = true;
 console.log("✅ app.js carregou");
 
@@ -84,19 +81,13 @@ function isSupportOrManager() {
   return profile?.role === "SUPORTE" || profile?.role === "GESTOR";
 }
 
-function ensureButtonType() {
-  const btn = $("btnLogin");
-  if (btn && btn.tagName === "BUTTON") btn.setAttribute("type", "button");
-}
-
 function getLoginElements() {
   const emailEl = $("loginEmail");
   const passEl = $("loginPass");
-  const btnEl = $("btnLogin");
   const msgEl = $("loginMsg");
   const dupEmail = document.querySelectorAll("#loginEmail").length;
   const dupPass = document.querySelectorAll("#loginPass").length;
-  return { emailEl, passEl, btnEl, msgEl, dupEmail, dupPass };
+  return { emailEl, passEl, msgEl, dupEmail, dupPass };
 }
 
 // =========================
@@ -113,6 +104,10 @@ let demandPageSize = 10;
 let demandTotal = 0;
 
 let editingDemand = null;
+
+// Boot/loop guards
+window.__BOOT_RUNNING__ = false;
+window.__LAST_AUTH_EVT__ = { event: null, at: 0 };
 
 // =========================
 // AUTH
@@ -143,15 +138,12 @@ function showAuthUI() {
   $("pageManage")?.classList.add("hidden");
   $("pendingBox")?.classList.add("hidden");
 
-  // tem dois btnLogout (nav e pending). os dois funcionam
-  document.querySelectorAll("#btnLogout").forEach(b => b.classList.add("hidden"));
   $("userBadge")?.classList.add("hidden");
 }
 
 function showAppUI() {
   $("pageAuth")?.classList.add("hidden");
   $("nav")?.classList.remove("hidden");
-  document.querySelectorAll("#btnLogout").forEach(b => b.classList.remove("hidden"));
   $("userBadge")?.classList.remove("hidden");
 }
 
@@ -485,7 +477,7 @@ function renderDemands(list) {
 }
 
 // =========================
-// DEMAND FORM (CREATE)
+// DEMAND FORM
 // =========================
 function resetDemandClientInfo() {
   $("dCliente") && ($("dCliente").value = "");
@@ -942,8 +934,7 @@ function bindEvents() {
     });
   });
 
-  // LOGIN
-  ensureButtonType();
+  // LOGIN (com timeout / catch)
   $("btnLogin")?.addEventListener("click", async (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -955,29 +946,52 @@ function bindEvents() {
       return;
     }
 
-    if (!emailEl || !passEl) {
-      setMsg(msgEl, "Campos de login não encontrados (IDs loginEmail/loginPass).", "bad");
-      return;
-    }
-
-    const email = (emailEl.value || "").trim();
-    const password = passEl.value || "";
+    const email = (emailEl?.value || "").trim();
+    const password = (passEl?.value || "");
 
     if (!email || !password) {
       setMsg(msgEl, "Informe email e senha.", "warn");
       return;
     }
 
+    const btn = $("btnLogin");
+    if (btn) btn.disabled = true;
     setMsg(msgEl, "Autenticando...", "info");
 
-    const { error } = await sb.auth.signInWithPassword({ email, password });
-    if (error) {
-      setMsg(msgEl, error.message, "bad");
-      return;
-    }
+    console.log("🔐 Tentando login", { email });
 
-    setMsg(msgEl, "Login ok!", "ok");
-    await boot();
+    const timeoutMs = 12000;
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("TIMEOUT_AUTH")), timeoutMs)
+    );
+
+    try {
+      const res = await Promise.race([
+        sb.auth.signInWithPassword({ email, password }),
+        timeoutPromise
+      ]);
+
+      console.log("✅ Retorno signInWithPassword:", res);
+
+      const { error } = res || {};
+      if (error) {
+        setMsg(msgEl, error.message, "bad");
+        return;
+      }
+
+      setMsg(msgEl, "Login ok! Carregando…", "ok");
+      await boot();
+    } catch (err) {
+      console.error("❌ Erro no login:", err);
+
+      if (String(err?.message || "").includes("TIMEOUT_AUTH")) {
+        setMsg(msgEl, "Demorou demais para autenticar (timeout). Verifique VPN/Proxy/AdBlock e tente novamente.", "bad");
+      } else {
+        setMsg(msgEl, "Falha de rede ao autenticar (provável bloqueio). Verifique DevTools > Network (/auth/v1/token).", "bad");
+      }
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   });
 
   // Register
@@ -1005,15 +1019,20 @@ function bindEvents() {
     setMsg($("regMsg"), "Cadastro criado! Aguarde ativação do gestor.", "ok");
   });
 
-  // Logout (existem 2 botões com mesmo id no HTML → por isso aqui é querySelectorAll)
-  document.querySelectorAll("#btnLogout").forEach(btn => {
-    btn.addEventListener("click", async (e) => {
-      e.preventDefault();
-      await sb.auth.signOut();
-      sessionUser = null;
-      profile = null;
-      showAuthUI();
-    });
+  // Logout
+  $("btnLogoutNav")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    await sb.auth.signOut();
+    sessionUser = null;
+    profile = null;
+    showAuthUI();
+  });
+  $("btnLogoutPending")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    await sb.auth.signOut();
+    sessionUser = null;
+    profile = null;
+    showAuthUI();
   });
 
   // Refresh clients
@@ -1152,55 +1171,80 @@ function bindEvents() {
 // BOOT
 // =========================
 async function boot() {
-  await loadSession();
-
-  if (!sessionUser) {
-    showAuthUI();
+  if (window.__BOOT_RUNNING__) {
+    console.warn("⚠️ boot já em execução (skip)");
     return;
   }
+  window.__BOOT_RUNNING__ = true;
 
-  profile = await fetchMyProfile();
-  if (!profile) {
-    showAuthUI();
-    setMsg($("loginMsg"), "⚠️ Login OK, mas não achei seu perfil em public.profiles (trigger/RLS).", "bad");
-    return;
-  }
+  console.log("🚀 boot() start");
 
-  showAppUI();
-  setUserBadge();
-  configureTabsByRole();
+  try {
+    await loadSession();
 
-  const ok = await ensureActiveOrPendingGate();
-  if (!ok) return;
+    if (!sessionUser) {
+      console.log("ℹ️ sem session → auth UI");
+      showAuthUI();
+      return;
+    }
 
-  applyRoleDefaultFilters();
+    profile = await fetchMyProfile();
+    console.log("👤 profile:", profile);
 
-  await loadUsersForEncaminhar();
-  await loadClients();
+    if (!profile) {
+      showAuthUI();
+      setMsg($("loginMsg"), "⚠️ Login OK, mas não achei seu perfil em public.profiles (trigger/RLS).", "bad");
+      return;
+    }
 
-  configureDemandFormByRole();
+    showAppUI();
+    setUserBadge();
+    configureTabsByRole();
 
-  activateTab("demands");
-  await loadDashboard();
-  await loadDemandsPage(1);
+    console.log("🔒 status:", profile.status, "role:", profile.role);
 
-  if (profile.role === "GESTOR") {
-    await loadManage();
+    const ok = await ensureActiveOrPendingGate();
+    if (!ok) return;
+
+    applyRoleDefaultFilters();
+
+    await loadUsersForEncaminhar();
+    await loadClients();
+
+    configureDemandFormByRole();
+
+    activateTab("demands");
+    await loadDashboard();
+    await loadDemandsPage(1);
+
+    if (profile.role === "GESTOR") {
+      await loadManage();
+    }
+  } finally {
+    window.__BOOT_RUNNING__ = false;
   }
 }
 
 // =========================
-// STARTUP (ANTI-DUPLICATE INIT)
+// STARTUP (ANTI-DUPLICATE INIT) + AUTH DEDUPE
 // =========================
 if (!window.__TASKSYS_INIT__) {
   window.__TASKSYS_INIT__ = true;
 
   window.addEventListener("DOMContentLoaded", () => {
     console.log("✅ DOM pronto - iniciando app (único)");
-    ensureButtonType();
+
     bindEvents();
 
     sb.auth.onAuthStateChange(async (event) => {
+      const now = Date.now();
+
+      if (window.__LAST_AUTH_EVT__.event === event && (now - window.__LAST_AUTH_EVT__.at) < 800) {
+        console.warn("⚠️ auth event duplicado ignorado:", event);
+        return;
+      }
+      window.__LAST_AUTH_EVT__ = { event, at: now };
+
       console.log("🔁 auth state change:", event);
       await boot();
     });
@@ -1208,5 +1252,5 @@ if (!window.__TASKSYS_INIT__) {
     boot();
   });
 } else {
-  console.warn("⚠️ app.js tentou inicializar 2x (bloqueado por __TASKSYS_INIT__)");
+  console.warn("⚠️ app.js tentou inicializar 2x (bloqueado)");
 }
